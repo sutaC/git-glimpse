@@ -3,5 +3,39 @@
 }
 
 body {
+    padding: 2rem 5% 1rem;
     background-color: lightcyan;
+}
+
+h1 {
+    margin: 0;
+}
+
+section {
+    margin: 2rem auto;
+    border: 1px solid #000;
+    background-color: white;
+}
+
+.file_header {
+    background-color: whitesmoke;
+    font-size: 1.25rem;
+    padding: 0.25rem 1rem;
+    margin: 0;
+    border-bottom: 1px solid #000;
+    margin-bottom: 0.5rem;
+}
+
+.file_contents {
+    margin-bottom: 0.5rem;
+}
+
+.file_contents_line {
+    padding-inline: 1rem;
+    white-space: pre-wrap;
+    display: block;
+}
+
+footer {
+    text-align: center;
 }

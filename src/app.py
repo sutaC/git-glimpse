@@ -24,10 +24,6 @@ def repo(id: str, sub: str):
     if not path.exists() or ".git" in path.parts:
         abort(404)
     str(subpath).lstrip(".")
-    pathchain = []
-    # for part in Path(subpath).parts:
-
-
     return render_template(
         "repo.html", 
         name="repo-name", 
