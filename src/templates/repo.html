@@ -8,59 +8,28 @@
             href="{{url_for('static', filename='styles/global.css')}}"
         />
         <title>
-            {{pathname+' | ' if pathname else '' }}{{name}} | Git Glimpse
+            {{path_str+' | ' if path_str else '' }}{{repo_name}} | Git Glimpse
         </title>
+        {% from "components/section_file.html" import section_file %} {% from
+        "components/section_dir.html" import section_dir %}
     </head>
     <body>
         <header>
             <h1 class="curr_path">
-                {% if pathname %}
-                <a href="/repo/{{id}}/">{{name}}</a>
-                {% else %} {{name}} {% endif %} {% for child in parentchain %} /
-                <a
-                    href="/repo/{{id}}/{{'/'.join(parentchain[:parentchain.index(child)+1])}}"
-                    >{{child}}</a
+                {% if path_str %}
+                <a href="/repo/{{id}}/">{{repo_name}}</a>
+                {% else %} {{repo_name}} {% endif %} {% for parent in
+                parent_chain %} /
+                <a href="/repo/{{id}}/{{parent}}"
+                    >{{parent.rsplit('/',1)[-1]}}</a
                 >
-                {% endfor %} {% if pathname %} / {{path.name}} {%endif%}
+                {% endfor %} {% if path_str %} / {{path.name}} {%endif%}
             </h1>
         </header>
         <main>
-            {% if path.is_dir() %}
-            <section class="dir">
-                <h2 class="file_header">
-                    {% if pathname %} {{path.name}} {% else %} {{name}} {% endif
-                    %}
-                </h2>
-                <ul class="dir_contents">
-                    {% if pathname %}
-                    <li class="dir_contents_child"><a href="..">..</a></li>
-                    {% endif %} {% for child in path.iterdir() %} {% if
-                    child.name != ".git" %}
-                    <li>
-                        <a
-                            href="{{child.name}}{{'/' if child.is_dir() else ''}}"
-                            >{{"dir: " if child.is_dir() else "file:
-                            "}}{{child.name}}</a
-                        >
-                    </li>
-                    {% endif %} {% endfor %}
-                </ul>
-            </section>
-            {% elif path.is_file() %}
-            <section class="file">
-                <h2 class="file_header">
-                    {% if pathname %} {{path.name}} {% else %} {{name}} {% endif
-                    %}
-                </h2>
-                <div class="file_contents">
-                    {% for line in path.read_text().split('\n') %}
-                    <span class="file_contents_line"
-                        >{{line if line else ' '}}</span
-                    >
-                    {% endfor %}
-                </div>
-            </section>
-            {% endif %}
+            {% if path.is_dir() %} {{ section_dir(path, id, parent_chain,
+            repo_name, path_str) }} {% elif path.is_file() %} {{
+            section_file(path, id, parent_chain) }} {% endif %}
         </main>
 
         <footer>

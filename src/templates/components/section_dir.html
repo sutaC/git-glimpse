@@ -1,0 +1,22 @@
+{% macro section_dir(path, id, parent_chain, repo_name, path_str) %}
+<section class="dir">
+    <div class="section_header">
+        <h2>
+            {% if path_str %} {{path.name}} {% else %} {{repo_name}} {% endif %}
+        </h2>
+    </div>
+    <ul class="dir_contents">
+        {% if path_str %}
+        <li class="dir_contents_child"><a href="..">..</a></li>
+        {% endif %} {% for child in path.iterdir() %} {% if child.name != ".git"
+        %}
+        <li>
+            <a
+                href="/repo/{{id}}/{{parent_chain[-1]+'/' if parent_chain else ''}}{{path.name+'/' if path.name != id else ''}}{{child.name}}{{'/' if child.is_dir() else ''}}"
+                >{{"dir: " if child.is_dir() else "file: "}}{{child.name}}</a
+            >
+        </li>
+        {% endif %} {% endfor %}
+    </ul>
+</section>
+{% endmacro %}

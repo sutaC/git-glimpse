@@ -17,13 +17,18 @@ section {
     background-color: white;
 }
 
-.file_header {
+.section_header {
     background-color: whitesmoke;
-    font-size: 1.25rem;
     padding: 0.25rem 1rem;
-    margin: 0;
     border-bottom: 1px solid #000;
     margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.section_header * {
+    margin: 0;
+    font-size: 1.25rem;
 }
 
 .file_contents {

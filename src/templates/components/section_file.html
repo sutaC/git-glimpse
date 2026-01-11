@@ -1,0 +1,13 @@
+{% macro section_file(path, id, parent_chain) %}
+<section class="file">
+    <div class="section_header">
+        <h2>{{path.name}}</h2>
+        <a href="/raw/{{id}}/{{parent_chain[-1]}}/{{path.name}}">Raw</a>
+    </div>
+    <div class="file_contents">
+        {% for line in path.read_text().split('\n') %}
+        <span class="file_contents_line">{{line if line else ' '}}</span>
+        {% endfor %}
+    </div>
+</section>
+{% endmacro %}
