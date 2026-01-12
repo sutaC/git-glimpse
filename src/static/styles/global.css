@@ -7,6 +7,10 @@ body {
     background-color: lightcyan;
 }
 
+.home {
+    margin-top: 0;
+}
+
 h1 {
     margin: 0;
 }
@@ -38,6 +42,13 @@ section {
 .file_contents_line {
     padding-inline: 1rem;
     white-space: pre-wrap;
+    display: block;
+}
+
+.file_contents_nodisplay {
+    text-align: center;
+    opacity: 0.75;
+    width: 100%;
     display: block;
 }
 

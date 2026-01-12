@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Git Glimpse</title>
+        <title>Add | Git Glimpse</title>
 
         <link
             rel="stylesheet"
@@ -11,18 +11,14 @@
         />
     </head>
     <body>
-        <header>
-            <h1>Git Glimpse</h1>
-            <a href="/repo/add">Add</a>
-        </header>
-        <main>
-            <h2>Repos (Dashboard)</h2>
-            <ul>
-                {% for id, name in repos %}
-                <li><a href="/repo/{{id|urlencode}}/">{{name}}</a></li>
-                {% endfor %}
-            </ul>
-        </main>
+        <h1>Add new repo</h1>
+        <form action="/repo/add" method="post">
+            <label for="url">Url:</label>
+            <input type="text" name="url" id="url" />
+            <label for="ssh_key">Key:</label>
+            <textarea name="ssh_key" id="ssh_key"></textarea>
+            <button type="submit">Add</button>
+        </form>
     </body>
     <footer>
         Made by:

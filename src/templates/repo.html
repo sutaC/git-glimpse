@@ -15,12 +15,13 @@
     </head>
     <body>
         <header>
+            <p class="home"><a href="/">Home</a></p>
             <h1 class="curr_path">
                 {% if path_str %}
-                <a href="/repo/{{id}}/">{{repo_name}}</a>
+                <a href="/repo/{{id|urlencode}}/">{{repo_name}}</a>
                 {% else %} {{repo_name}} {% endif %} {% for parent in
                 parent_chain %} /
-                <a href="/repo/{{id}}/{{parent}}"
+                <a href="/repo/{{id|urlencode}}/{{parent|urlencode}}"
                     >{{parent.rsplit('/',1)[-1]}}</a
                 >
                 {% endfor %} {% if path_str %} / {{path.name}} {%endif%}
@@ -29,7 +30,7 @@
         <main>
             {% if path.is_dir() %} {{ section_dir(path, id, parent_chain,
             repo_name, path_str) }} {% elif path.is_file() %} {{
-            section_file(path, id, parent_chain) }} {% endif %}
+            section_file(path, id, parent_chain, is_text) }} {% endif %}
         </main>
 
         <footer>

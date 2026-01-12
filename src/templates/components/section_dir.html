@@ -12,7 +12,7 @@
         %}
         <li>
             <a
-                href="/repo/{{id}}/{{parent_chain[-1]+'/' if parent_chain else ''}}{{path.name+'/' if path.name != id else ''}}{{child.name}}{{'/' if child.is_dir() else ''}}"
+                href="/repo/{{id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != id else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
                 >{{"dir: " if child.is_dir() else "file: "}}{{child.name}}</a
             >
         </li>
