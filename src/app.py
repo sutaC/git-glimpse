@@ -10,8 +10,9 @@ import os
 
 load_dotenv()
 
-DATABASE_PATH = Path(__file__).parent.parent / "database.db"
-REPO_PATH =  Path(__file__).parent.parent / "repo" # /[...]/project_root/repo
+PROJECT_ROOT_PATH = Path(__file__).parent.parent 
+DATABASE_PATH = PROJECT_ROOT_PATH / "database.db"
+REPO_PATH =  PROJECT_ROOT_PATH / "repo"
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 app = Flask(__name__)
@@ -57,16 +58,16 @@ def clear_session_cookie(response: Response):
 def root():
     return render_template("index.html")
 
-@app.route("/repo/<string:id>", defaults={"sub": ""}, strict_slashes=False)
-@app.route("/repo/<string:id>/<path:sub>")
-def repo(id: str, sub: str):
-    if len(id) != 22 or not id.isascii():
+@app.route("/repo/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
+@app.route("/repo/<string:repo_id>/<path:sub>")
+def repo(repo_id: str, sub: str):
+    if len(repo_id) != 22 or not repo_id.isascii():
         abort(404)
-    repo_name = db.get_repo_name(id)
+    repo_name = db.get_repo_name(repo_id)
     db.close()
     if not repo_name:
         abort(404)
-    path = REPO_PATH / id
+    path = REPO_PATH / repo_id
     if not path.is_dir():
         abort(409, "Repo is not cloned on server, do a build first")
     subpath = Path(sub)
@@ -74,25 +75,25 @@ def repo(id: str, sub: str):
     if not path.exists() or ".git" in path.parts or REPO_PATH not in path.parents:
         abort(404)
     # Makes list of path urls to all parent dirs
-    parentchain = path.parts[path.parts.index(id)+1:-1]
+    parentchain = path.parts[path.parts.index(repo_id)+1:-1]
     parentchain = ['/'.join(parentchain[:parentchain.index(p)+1]) for p in parentchain]
     return render_template(
         "repo.html", 
         repo_name=repo_name,
         path_str=str(subpath).lstrip("."),
         path=path,
-        id=id,
+        repo_id=repo_id,
         parent_chain=parentchain,
         is_text=utils.is_text(path)
     )
 
-@app.route("/raw/<string:id>/<path:sub>")
-def raw(id: str, sub: str):
-    if len(id) != 22 or not id.isascii(): abort(404)
-    repo_name = db.get_repo_name(id)
+@app.route("/raw/<string:repo_id>/<path:sub>")
+def raw(repo_id: str, sub: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
+    repo_name = db.get_repo_name(repo_id)
     db.close()
     if not repo_name: abort(404)
-    path = REPO_PATH / id
+    path = REPO_PATH / repo_id
     if not path.is_dir():
         abort(409, "Repo is not cloned on server")
     subpath = Path(sub)
@@ -100,7 +101,7 @@ def raw(id: str, sub: str):
     if not path.exists() or ".git" in path.parts or REPO_PATH not in path.parents:
         abort(404)
     if path.is_dir():
-        return redirect(f"/repo/{id}/{sub}", 303)
+        return redirect(f"/repo/{repo_id}/{sub}", 303)
     if utils.is_text(path):
         with open(path, "r",) as f:
             return Response(f.read(), mimetype="text/plain")
@@ -121,7 +122,6 @@ def repo_add():
     else: ssh_key = None
     if not utils.is_valid_repo_url(url):
         abort(400, "Invalid url")
-    user_id = db.connect().execute("SELECT `id` FROM `users` WHERE `login` = 'root';").fetchone()[0] # DEBUG
     # TODO check limits
     repo_id = db.generate_repo_id(REPO_PATH)
     path = REPO_PATH / repo_id
@@ -132,7 +132,7 @@ def repo_add():
     except:
         abort(400, "Could not clone repo, check key if its private")
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
-    db.add_repo(repo_id, user_id, url, repo_name, ssh_key)
+    db.add_repo(repo_id, g.user.user_id, url, repo_name, ssh_key)
     db.close()
     return redirect(f"/repo/{repo_id}/")
 
@@ -212,7 +212,6 @@ def logout():
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
 # TODO: /admin : admin panel (++)
-# TODO: /repo/details/<id> : repo details, editing and building
 
 @app.route("/dashboard")
 @auth.login_required()
@@ -220,6 +219,18 @@ def dashboard():
     # TODO: verification message if not verified
     repos = db.get_all_user_repos(g.user.user_id)
     return render_template("dashboard.html", repos=repos)
+
+@app.route("/repo/details/<string:repo_id>")
+@auth.login_required()
+def details(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
+    repo = db.get_repo(repo_id)
+    if not repo: abort(404)
+    repo_name, repo_user_id = repo
+    if repo_user_id != g.user.user_id: abort(404)
+    # TODO: basic information, editing and building 
+    return render_template("details.html", repo_name=repo_name)
+    
 
 @app.teardown_appcontext
 def db_close(error=None):

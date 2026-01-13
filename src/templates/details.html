@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Dashboard | Git Glimpse</title>
+        <title>{{repo_name}} | Details | Git Glimpse</title>
 
         <link
             rel="stylesheet"
@@ -12,25 +12,11 @@
     </head>
     <body>
         <header>
-            <h1>Dashboard - {{g.user.login}}</h1>
+            <h1>{{repo_name}}</h1>
             <a href="/">Home</a>
-            <a href="/repo/add">Add</a>
-            <a href="/logout">Logout</a>
+            <a href="/dashboard">Dashboard</a>
         </header>
-        <main>
-            <h2>Repos</h2>
-            <ul>
-                {% for id, name in repos %}
-                <li>
-                    <a href="/repo/{{id|urlencode}}/">{{name}}</a> --
-                    <a href="/repo/details/{{id|urlencode}}">Details</a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% if not repos %}
-            <small>No repos yet!</small>
-            {% endif %}
-        </main>
+        <main>...</main>
         <footer>
             Made by:
             <a

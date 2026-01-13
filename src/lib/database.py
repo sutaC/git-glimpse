@@ -98,6 +98,13 @@ class Database:
         res = cursor.fetchone()
         cursor.close()
         return res[0] if res else None
+    
+    def get_repo(self, repo_id:str) -> tuple[str, int] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `repo_name`, `user_id` FROM `repos` WHERE `id` = ?;', [repo_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res
 
     def add_user(self, login:str, email:str, password:str, role:Literal['u','a'] = 'u') -> int:
         cursor = self.connect().cursor()
