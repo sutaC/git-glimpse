@@ -1,4 +1,5 @@
 from secrets import token_urlsafe
+import time
 from typing import Literal
 from pathlib import Path
 from flask import g
@@ -21,12 +22,13 @@ class Database:
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
                 `role` TEXT DEFAULT 'u' NOT NULL CHECK (`role` IN ('u', 'a'))
             );
-            CREATE TABLE IF NOT EXISTS sessions (
+            CREATE TABLE IF NOT EXISTS `sessions` (
                 `id` TEXT PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `expires` INTEGER NOT NULL,
                 UNIQUE(`user_id`, `id`)
             );
+            CREATE INDEX IF NOT EXISTS `idx_sessions_expires` ON `sessions`(`expires`);
             CREATE INDEX IF NOT EXISTS `idx_sessions_user_id` ON `sessions`(`user_id`);
             CREATE TABLE IF NOT EXISTS `repos` (
                 `id` TEXT PRIMARY KEY,
@@ -160,5 +162,19 @@ class Database:
     def delete_session(self, session_id: str) -> tuple[str, int] | None:
         cursor = self.connect().cursor()
         cursor.execute('DELETE FROM `sessions` WHERE `id` = ?;', [session_id])
+        self.connect().commit()        
+        cursor.close()
+
+    def delete_all_expired_sessions(self) -> None:
+        now = int(time.time())
+        cursor = self.connect().cursor()
+        cursor.execute('DELETE FROM `sessions` WHERE `expires` < ?;', [now])
+        self.connect().commit()        
+        cursor.close()
+
+    def delete_user_expired_sessions(self, user_id: int) -> None:
+        now = int(time.time())
+        cursor = self.connect().cursor()
+        cursor.execute('DELETE FROM `sessions` WHERE `user_id` = ? AND `expires` < ?;', [user_id, now])
         self.connect().commit()        
         cursor.close()

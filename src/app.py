@@ -33,13 +33,13 @@ def load_user():
     if not session: return db.close()
     user_id, expires = session
     if expires < int(time.time()):
-        db.delete_session(session_id)
+        db.delete_user_expired_sessions(user_id)
         db.close()
         g.clear_session_cookie = True
         return 
     user = db.get_user(user_id)
     if not user:
-        db.delete_session(session_id)
+        db.delete_user_expired_sessions(user_id)
         db.close()
         g.clear_session_cookie = True
         return
@@ -200,6 +200,9 @@ def register():
 @app.route("/logout")
 @auth.login_required()
 def logout():
+    db.delete_session(g.user.session_id)
+    db.delete_user_expired_sessions(g.user.user_id)
+    db.close()
     response = redirect("/login")
     response.delete_cookie("session_id")
     return response
