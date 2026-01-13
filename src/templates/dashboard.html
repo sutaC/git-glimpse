@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Dashboard | Git Glimpse</title>
+
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/global.css')}}"
+        />
+    </head>
+    <body>
+        <header>
+            <h1>Dashboard - {{g.user.login}}</h1>
+            <a href="/repo/add">Add</a>
+            <a href="/logout">Logout</a>
+        </header>
+        <main>
+            <h2>Repos</h2>
+            <ul>
+                {% for id, name in repos %}
+                <li><a href="/repo/{{id|urlencode}}/">{{name}}</a></li>
+                {% endfor %}
+            </ul>
+            {% if not repos %}
+            <small>No repos yet!</small>
+            {% endif %}
+        </main>
+    </body>
+</html>

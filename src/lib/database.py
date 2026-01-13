@@ -1,9 +1,10 @@
 from secrets import token_urlsafe
-from pathlib import Path
 from typing import Literal
-import uuid
+from pathlib import Path
 from flask import g
 import sqlite3
+import lib.auth as auth
+import os
 
 class Database:
     def __init__(self, path: Path) -> None:
@@ -13,7 +14,7 @@ class Database:
         cursor = self.connect().cursor()
         cursor.executescript('''
             CREATE TABLE IF NOT EXISTS `users` (
-                `id` TEXT PRIMARY KEY,
+                `id` INTEGER PRIMARY KEY,
                 `login` TEXT NOT NULL UNIQUE,
                 `email` TEXT NOT NULL UNIQUE,
                 `password` TEXT NOT NULL,
@@ -24,7 +25,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS sessions (
                 `id` TEXT PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
-                `expires` TIMESTAMP NOT NULL,
+                `expires` INTEGER NOT NULL,
                 UNIQUE(`user_id`, `id`)
             );
             CREATE INDEX IF NOT EXISTS `idx_sessions_user_id` ON `sessions`(`user_id`);
@@ -42,9 +43,10 @@ class Database:
         cursor.execute("SELECT `id` FROM `users` WHERE `login` = 'root';")
         root_id = cursor.fetchone()
         if not root_id:
-            password = "" # TODO get from env
-            salt = "" # TODO generate
-            root_id = self.add_user("root", "", password, salt, 'a')
+            password = os.getenv("ROOT_PASSWORD") or "password"
+            salt = auth.generate_salt()
+            hashed_password = auth.hash_password(password, salt)
+            root_id = self.add_user("root", "", hashed_password, salt, 'a')
             self.set_user_verified(root_id)
         cursor.close()
         self.close()
@@ -63,50 +65,88 @@ class Database:
     def generate_repo_id(self, repo_root_path: Path) -> str:
         cursor = self.connect().cursor()
         while True:
-            id = token_urlsafe(12)
+            id = token_urlsafe(16)
             if (repo_root_path /  id).exists(): continue
             cursor.execute('SELECT `id` FROM `repos` WHERE `id` = ?;', [id])
             if not cursor.fetchone(): break
         cursor.close()
         return id
 
-    def add_repo(self, id:str, user_id:str, url:str, repo_name:str, ssh_key:str|None = None) -> None:
+    def add_repo(self, repo_id:str, user_id:int, url:str, repo_name:str, ssh_key:str|None = None) -> None:
         cursor = self.connect().cursor()
         cursor.execute('INSERT INTO `repos` (`id`, `user_id`, `url`, `repo_name`, `ssh_key`) VALUES (?, ?, ?, ?, ?);', 
-            [id, user_id, url, repo_name, ssh_key]
+            [repo_id, user_id, url, repo_name, ssh_key]
         )
         self.connect().commit()
         cursor.close()
     
-    def get_all_repos(self) -> list[tuple[str, str]]:
+    def get_all_user_repos(self, user_id: int) -> list[tuple[str, str]]:
         cursor = self.connect().cursor()
-        cursor.execute("SELECT `id`, `repo_name` FROM `repos`;")
+        cursor.execute('''
+            SELECT `repos`.`id`, `repos`.`repo_name` 
+            FROM `users` 
+            JOIN `repos` ON  `users`.`id` = `repos`.`user_id`
+            WHERE `users`.`id` = ?;
+        ''', [user_id])
         res = cursor.fetchall()
         cursor.close()
         return res
 
-    def get_repo_name(self, id:str) -> str | None:
+    def get_repo_name(self, repo_id:str) -> str | None:
         cursor = self.connect().cursor()
-        cursor.execute('SELECT `repo_name` FROM `repos` WHERE `id` = ?;', [id])
+        cursor.execute('SELECT `repo_name` FROM `repos` WHERE `id` = ?;', [repo_id])
         res = cursor.fetchone()
         cursor.close()
         return res[0] if res else None
 
-    def add_user(self, login:str, email:str, password:str, salt:str, role:Literal['u','a'] = 'u') -> str:
+    def add_user(self, login:str, email:str, password:str, salt:str, role:Literal['u','a'] = 'u') -> int:
         cursor = self.connect().cursor()
-        while True:
-            id = str(uuid.uuid4())
-            cursor.execute('SELECT `id` FROM `users` WHERE `id` = ?;', [id])
-            if not cursor.fetchone(): break
-        cursor.execute('INSERT INTO `users` (`id`, `login`, `email`, `password`, `salt`, `role`) VALUES (?, ?, ?, ?, ?, ?);', 
-            [id, login, email, password, salt, role]
+        cursor.execute('INSERT INTO `users` (`login`, `email`, `password`, `salt`, `role`) VALUES (?, ?, ?, ?, ?);', 
+            [login, email, password, salt, role]
         )
+        user_id = cursor.lastrowid
+        assert isinstance(user_id, int)
+        self.connect().commit()
+        cursor.close()
+        return user_id
+
+    def set_user_verified(self, user_id:int) -> None:
+        cursor = self.connect().cursor()
+        cursor.execute('UPDATE `users` SET `is_verified` = 1 WHERE `id` = ?;', [user_id])
+        self.connect().commit()
+        cursor.close()
+
+    def get_user_password(self, login: str) -> tuple[int, str, str, str] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `id`, `password`, `salt`, `role` FROM `users` WHERE `login` = ?;', [login])
+        res = cursor.fetchone()
+        cursor.close()
+        return res
+    
+    def get_user(self, user_id: int) -> tuple[str, str, bool] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `login`, `role`, `is_verified` FROM `users` WHERE `id` = ?;', [user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res
+    
+    def add_session(self, user_id: int, expires: int) -> str:
+        cursor = self.connect().cursor()
+        id = token_urlsafe(32)
+        cursor.execute('INSERT INTO `sessions` (`id`, `user_id`, `expires`) VALUES (?, ?, ?);', [id, user_id, expires])
         self.connect().commit()
         cursor.close()
         return id
-
-    def set_user_verified(self, id:str) -> None:
+    
+    def get_session(self, session_id: str) -> tuple[int, int] | None:
         cursor = self.connect().cursor()
-        cursor.execute('UPDATE `users` SET `is_verified` = 1 WHERE `id` = ?;', [id])
-        self.connect().commit()
+        cursor.execute('SELECT `user_id`, `expires` FROM `sessions` WHERE `id` = ?;', [session_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res
+    
+    def delete_session(self, session_id: str) -> tuple[str, int] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('DELETE FROM `sessions` WHERE `id` = ?;', [session_id])
+        self.connect().commit()        
         cursor.close()

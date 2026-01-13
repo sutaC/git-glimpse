@@ -11,14 +11,19 @@
         />
     </head>
     <body>
-        <h1>Add new repo</h1>
-        <form action="/repo/add" method="post">
-            <label for="url">Url:</label>
-            <input type="text" name="url" id="url" />
-            <label for="ssh_key">Key:</label>
-            <textarea name="ssh_key" id="ssh_key"></textarea>
-            <button type="submit">Add</button>
-        </form>
+        <header>
+            <h1>Add new repo</h1>
+            <a href="/dashboard">Dashboard</a>
+        </header>
+        <main>
+            <form action="/repo/add" method="post">
+                <label for="url">Url:</label>
+                <input type="text" name="url" id="url" />
+                <label for="ssh_key">Key:</label>
+                <textarea name="ssh_key" id="ssh_key"></textarea>
+                <button type="submit">Add</button>
+            </form>
+        </main>
     </body>
     <footer>
         Made by:

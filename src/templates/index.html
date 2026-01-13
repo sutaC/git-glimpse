@@ -13,15 +13,14 @@
     <body>
         <header>
             <h1>Git Glimpse</h1>
-            <a href="/repo/add">Add</a>
+            {% if g.user %}
+            <a href="/dashboard">Dashboard</a>
+            {% else %}
+            <a href="/login">Login</a>
+            {% endif %}
         </header>
         <main>
-            <h2>Repos (Dashboard)</h2>
-            <ul>
-                {% for id, name in repos %}
-                <li><a href="/repo/{{id|urlencode}}/">{{name}}</a></li>
-                {% endfor %}
-            </ul>
+            <h2>Get started</h2>
         </main>
     </body>
     <footer>
