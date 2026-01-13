@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Login | Git Glimpse</title>
+        <title>Register | Git Glimpse</title>
 
         <link
             rel="stylesheet"
@@ -12,18 +12,22 @@
     </head>
     <body>
         <header>
-            <h1>Login</h1>
+            <h1>Register</h1>
             <a href="/">Home</a>
         </header>
         <main>
-            <form action="/login" method="post">
+            <form action="/register" method="post">
                 <label for="login">Login:</label>
                 <input type="text" name="login" id="login" />
+                <label for="email">Email:</label>
+                <input type="email" name="email" id="email" />
                 <label for="password">Password:</label>
                 <input type="password" name="password" id="password" />
-                <button type="submit">Login</button>
+                <label for="r_password">Repeat password:</label>
+                <input type="password" name="r_password" id="r_password" />
+                <button type="submit">Register</button>
             </form>
-            <p>Don't have an account?<a href="/register">Register</a>!</p>
+            <p>Have an account?<a href="/login">Login</a>!</p>
         </main>
         <footer>
             Made by:

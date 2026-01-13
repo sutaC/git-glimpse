@@ -1,7 +1,7 @@
+from flask import abort, redirect, g, request
 from functools import wraps
-import hashlib
-import secrets
-from flask import abort, g, redirect, request
+import bcrypt
+import time
 
 class User():
     def __init__(
@@ -18,13 +18,16 @@ class User():
         self.role: str = role
         self.is_verified: bool = is_verified
 
-def hash_password(password: str, salt: str) ->  str:
-    s = (password+salt).encode()
-    hash = hashlib.sha256(s)
-    return hash.digest().hex()
+def hash_password(password: str) ->  str:
+    enc = password.encode()
+    hashed = bcrypt.hashpw(enc, bcrypt.gensalt()) 
+    return hashed.decode()
 
-def generate_salt() -> str:
-    return secrets.token_hex(32)
+def check_password(password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed_password.encode())
+
+def get_session_expiriation(role: str) -> int:
+    return int(time.time()) + (1200 if role == 'a' else 3600) # now + 1h (user) + 20min (admin) 
 
 def login_required():
     def decorator(f):

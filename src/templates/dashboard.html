@@ -13,6 +13,7 @@
     <body>
         <header>
             <h1>Dashboard - {{g.user.login}}</h1>
+            <a href="/">Home</a>
             <a href="/repo/add">Add</a>
             <a href="/logout">Logout</a>
         </header>
@@ -27,5 +28,14 @@
             <small>No repos yet!</small>
             {% endif %}
         </main>
+        <footer>
+            Made by:
+            <a
+                href="http://github.com/sutaC"
+                target="_blank"
+                rel="noopener noreferrer"
+                >sutaC</a
+            >
+        </footer>
     </body>
 </html>

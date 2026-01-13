@@ -2,8 +2,8 @@ from secrets import token_urlsafe
 from typing import Literal
 from pathlib import Path
 from flask import g
-import sqlite3
 import lib.auth as auth
+import sqlite3
 import os
 
 class Database:
@@ -18,7 +18,6 @@ class Database:
                 `login` TEXT NOT NULL UNIQUE,
                 `email` TEXT NOT NULL UNIQUE,
                 `password` TEXT NOT NULL,
-                `salt` TEXT NOT NULL,
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
                 `role` TEXT DEFAULT 'u' NOT NULL CHECK (`role` IN ('u', 'a'))
             );
@@ -44,9 +43,8 @@ class Database:
         root_id = cursor.fetchone()
         if not root_id:
             password = os.getenv("ROOT_PASSWORD") or "password"
-            salt = auth.generate_salt()
-            hashed_password = auth.hash_password(password, salt)
-            root_id = self.add_user("root", "", hashed_password, salt, 'a')
+            hashed_password = auth.hash_password(password)
+            root_id = self.add_user("root", "", hashed_password, 'a')
             self.set_user_verified(root_id)
         cursor.close()
         self.close()
@@ -99,10 +97,10 @@ class Database:
         cursor.close()
         return res[0] if res else None
 
-    def add_user(self, login:str, email:str, password:str, salt:str, role:Literal['u','a'] = 'u') -> int:
+    def add_user(self, login:str, email:str, password:str, role:Literal['u','a'] = 'u') -> int:
         cursor = self.connect().cursor()
-        cursor.execute('INSERT INTO `users` (`login`, `email`, `password`, `salt`, `role`) VALUES (?, ?, ?, ?, ?);', 
-            [login, email, password, salt, role]
+        cursor.execute('INSERT INTO `users` (`login`, `email`, `password`, `role`) VALUES (?, ?, ?, ?);', 
+            [login, email, password, role]
         )
         user_id = cursor.lastrowid
         assert isinstance(user_id, int)
@@ -116,9 +114,23 @@ class Database:
         self.connect().commit()
         cursor.close()
 
-    def get_user_password(self, login: str) -> tuple[int, str, str, str] | None:
+    def is_user_login(self, login: str) -> bool:
         cursor = self.connect().cursor()
-        cursor.execute('SELECT `id`, `password`, `salt`, `role` FROM `users` WHERE `login` = ?;', [login])
+        cursor.execute('SELECT `id` FROM `users` WHERE `login` = ?;', [login])
+        res = cursor.fetchone()
+        cursor.close()
+        return res is not None
+    
+    def is_user_email(self, email: str) -> bool:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `id` FROM `users` WHERE `email` = ?;', [email])
+        res = cursor.fetchone()
+        cursor.close()
+        return res is not None
+
+    def get_user_password(self, login: str) -> tuple[int, str, str] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `id`, `password`, `role` FROM `users` WHERE `login` = ?;', [login])
         res = cursor.fetchone()
         cursor.close()
         return res

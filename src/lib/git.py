@@ -1,13 +1,7 @@
-import re
-import os
-import subprocess
-from pathlib import Path
 from tempfile import NamedTemporaryFile
-
-GITHUB_URL_REGEX = r'^(?:https:\/\/github\.com\/|git@github\.com:)[\w\-]+\/[\w\-]+(?:\.git)?$'
-
-def is_valid_repo_url(url: str) -> bool:
-    return bool(re.match(GITHUB_URL_REGEX, url))
+from pathlib import Path
+import subprocess
+import os
 
 def clone_repo(url: str, target_dir: Path, ssh_key: str | None = None):
     target_dir.mkdir()

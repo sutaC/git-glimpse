@@ -1,19 +1,24 @@
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
 from lib.database import Database
 from dotenv import load_dotenv
-from lib.utils import is_text
 from pathlib import Path
+import lib.utils as utils
 import lib.auth as auth
 import lib.git as git
 import time
+import os
 
 load_dotenv()
 
 DATABASE_PATH = Path(__file__).parent.parent / "database.db"
 REPO_PATH =  Path(__file__).parent.parent / "repo" # /[...]/project_root/repo
-if(not REPO_PATH.is_dir()): REPO_PATH.mkdir()
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = SECRET_KEY
+
+if(not REPO_PATH.is_dir()): REPO_PATH.mkdir()
+
 db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
@@ -78,7 +83,7 @@ def repo(id: str, sub: str):
         path=path,
         id=id,
         parent_chain=parentchain,
-        is_text=is_text(path)
+        is_text=utils.is_text(path)
     )
 
 @app.route("/raw/<string:id>/<path:sub>")
@@ -96,7 +101,7 @@ def raw(id: str, sub: str):
         abort(404)
     if path.is_dir():
         return redirect(f"/repo/{id}/{sub}", 303)
-    if is_text(path):
+    if utils.is_text(path):
         with open(path, "r",) as f:
             return Response(f.read(), mimetype="text/plain")
     return send_file(path)
@@ -107,20 +112,21 @@ def repo_add():
     if request.method == "GET":
         return render_template("repo_add.html")
     # POST:
+    # TODO: block if not verified
     url = request.form.get("url", "").strip()
     if not url:
         abort(400, "Missing url")
     ssh_key =  request.form.get("ssh_key")
     if ssh_key: ssh_key = ssh_key.strip()
     else: ssh_key = None
-    if not git.is_valid_repo_url(url):
+    if not utils.is_valid_repo_url(url):
         abort(400, "Invalid url")
     user_id = db.connect().execute("SELECT `id` FROM `users` WHERE `login` = 'root';").fetchone()[0] # DEBUG
     # TODO check limits
     repo_id = db.generate_repo_id(REPO_PATH)
     path = REPO_PATH / repo_id
     if url.startswith("https://") and ssh_key:
-        abort(400, "To use ssh_ key you need to provide ssh url")
+        abort(400, "To use ssh-key you need to provide ssh url")
     try:
         git.clone_repo(url, path, ssh_key)
     except:
@@ -144,12 +150,47 @@ def login():
     if not user: 
         db.close()
         abort(400, "Invalid login or password")
-    user_id, password, salt, role = user
-    hashed_password = auth.hash_password(send_password, salt)
-    if password != hashed_password: 
+    user_id, user_password, user_role = user
+    if not auth.check_password(send_password, user_password): 
         db.close()
         abort(400, "Invalid login or password")
-    expires = int(time.time()) + (3600 if role == 'u' else 1200) # now + 1h (user) + 20min (admin) 
+    expires = auth.get_session_expiriation(user_role)
+    session_id = db.add_session(user_id, expires)
+    response = redirect("/dashboard")
+    response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    db.close()
+    return response
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if g.user:
+        return redirect("/dashboard")
+    if request.method == "GET":
+        return render_template("register.html")
+    # POST:
+    user_login = request.form.get("login", "").strip()
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+    r_password = request.form.get("r_password", "")
+    if not user_login or not email or not password or not r_password:
+        abort(400, "Missing data")
+    if utils.is_valid_email(email):
+        abort(400, "Invalid email")
+    if password != r_password:
+        abort(400, "Password doesn't match repeated password")
+    pass_err = utils.is_valid_password(password)
+    if pass_err:
+        abort(400, pass_err)
+    if db.is_user_login(user_login):
+        db.close()
+        abort(400, 'Login is already registered')
+    if db.is_user_email(email):
+        db.close()
+        abort(400, 'Email is already registered')
+    # TODO: send verification email
+    hashed_password = auth.hash_password(password)
+    user_id = db.add_user(user_login, email, hashed_password, 'u')
+    expires = auth.get_session_expiriation('u')
     session_id = db.add_session(user_id, expires)
     response = redirect("/dashboard")
     response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
@@ -163,9 +204,17 @@ def logout():
     response.delete_cookie("session_id")
     return response
 
+# TODO: /verify : verification emails
+# TODO: /verify/resend : resend verification emails
+# TODO: /recover : recover password by emails
+# TODO: /reset : reset password by emails
+# TODO: /admin : admin panel (++)
+# TODO: /repo/details/<id> : repo details, editing and building
+
 @app.route("/dashboard")
 @auth.login_required()
 def dashboard():
+    # TODO: verification message if not verified
     repos = db.get_all_user_repos(g.user.user_id)
     return render_template("dashboard.html", repos=repos)
 
