@@ -67,17 +67,17 @@ def repo(repo_id: str, sub: str):
     db.close()
     if not repo_name:
         abort(404)
-    path = REPO_PATH / repo_id
-    if not path.is_dir():
-        abort(409, "Repo is not cloned on server, do a build first")
+    repo_path = REPO_PATH / repo_id
+    if not repo_path.is_dir():
+        abort(500, "Repo is not on server")
     subpath = Path(sub)
-    path = (path / subpath).resolve()
-    if not path.exists() or not path.is_relative_to(REPO_PATH / repo_id):
-        abort(404, "Invalid subpath")
-    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
-        abort(400, "Symlinks are not allowed")
+    try:
+        path = git.get_repo_path(repo_path, subpath)
+    except git.RepoError as e:
+        abort(e.code, e.msg)
+    print(path)
     # Makes list of path urls to all parent dirs
-    rel_parts = path.relative_to(REPO_PATH / repo_id).parts[:-1]  # exclude file itself
+    rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
     parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
     return render_template(
         "repo.html", 
@@ -95,15 +95,14 @@ def raw(repo_id: str, sub: str):
     repo_name = db.get_repo_name(repo_id)
     db.close()
     if not repo_name: abort(404)
-    path = REPO_PATH / repo_id
-    if not path.is_dir():
-        abort(409, "Repo is not cloned on server")
+    repo_path = REPO_PATH / repo_id
+    if not repo_path.is_dir():
+        abort(500, "Repo is not on server")
     subpath = Path(sub)
-    path = (path / subpath).resolve()
-    if not path.exists() or not path.is_relative_to(REPO_PATH / repo_id):
-        abort(404, "Invalid subpath")
-    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
-        abort(400, "Symlinks are not allowed")
+    try:
+        path = git.get_repo_path(repo_path, subpath)
+    except git.RepoError as e:
+        abort(e.code, e.msg)
     if path.is_dir():
         return redirect(f"/repo/{repo_id}/{sub}", 303)
     return send_file(path, mimetype="text/plain", as_attachment=False)

@@ -1,12 +1,18 @@
 from pathlib import Path
-import time
 from cryptography.fernet import Fernet 
+import zstandard as zstd
 import subprocess
 import tempfile
+import tarfile
 import shutil
+import time
 import os
 
 FERNET = Fernet(os.environ["FERNET_KEY"]) # REQUIRED
+
+PROJECT_ROOT_PATH = Path(__file__).parent.parent.parent 
+REPO_PATH =  PROJECT_ROOT_PATH / "repo"
+REPO_PATH.mkdir(exist_ok=True)
 
 MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -15,6 +21,43 @@ MAX_DIR_COUNT = 5_000
 MAX_DEPTH = 20
 MAX_SCAN_TIME = 10 # 10 s
 MAX_CLONE_TIME = 30 # 30 s
+
+class RepoError(RuntimeError):
+    def __init__(self, code: int, msg: str | None = None, *args: object) -> None:
+        super().__init__(*args)
+        self.code: int = code
+        self.msg: str | None = msg
+
+class RepoLock:
+    def __init__(self, repo_path: Path):
+        self.lock_file = repo_path / ".extract.lock"
+        self.acquired = False
+
+    def acquire(self, timeout: int = 10):
+        start = time.time()
+        while True:
+            try:
+                fd = self.lock_file.open("x") # fails if file exist
+                fd.write(str(time.time()))
+                fd.close()
+                self.acquired = True
+                return
+            except FileExistsError:
+                if time.time() - start > timeout:
+                    raise RuntimeError("Could not acquire repo lock")
+                time.sleep(0.1)
+
+    def release(self):
+        if self.acquired and self.lock_file.exists():
+            self.lock_file.unlink()
+            self.acquired = False
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
 
 def check_repo_limits(path: Path):
     total_size = 0
@@ -52,7 +95,7 @@ def check_repo_limits(path: Path):
         elif f.is_block_device():
             raise RuntimeError("Block devices are not allowed")
    
-def clone_repo(url: str, target_dir: Path, ssh_key: str | None = None):
+def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None):
     env = None
     key_path = None
     try:
@@ -91,20 +134,79 @@ def clone_repo(url: str, target_dir: Path, ssh_key: str | None = None):
             # Checks repo limits
             check_repo_limits(tmpdir)
             # Ensures target dir is empty
-            if target_dir.exists():
-                shutil.rmtree(target_dir)
-            target_dir.mkdir(exist_ok=True, parents=True)
-            # Moves files to target_dir
-            for item in tmpdir.iterdir():
-                shutil.move(item, target_dir)
-            # Restricts permissions
-            for path in target_dir.rglob("*"):
-                if path.is_file():
-                    path.chmod(0o400)
-                elif path.is_dir():
-                    path.chmod(0o500)
+            if repo_dir.exists():
+                shutil.rmtree(repo_dir)
+            repo_dir.mkdir(exist_ok=True, parents=True)
+            # Moves files to repo_dir archive
+            archive_path = repo_dir / "repo.tar.zst"
+            compress_repo(tmpdir, archive_path)
+            archive_path.chmod(0o400)
     finally:
         if key_path: key_path.unlink(missing_ok=True)
+
+def compress_repo(src_dir: Path, archive_path: Path, compression_level: int = 3):
+    with open(archive_path, "wb") as f_out:
+        cctx = zstd.ZstdCompressor(level=compression_level)
+        with cctx.stream_writer(f_out) as compressor:
+            with tarfile.open(fileobj=compressor, mode="w") as tar:
+                tar.add(src_dir, arcname="")
+
+def extract_repo(repo_path: Path) -> None:
+    archive_path = repo_path / "repo.tar.zst"
+    if not archive_path.exists(): raise RuntimeError("Archive doesnt exist")
+    with RepoLock(repo_path):
+        ext_path = repo_path / "extracted"
+        if ext_path.exists(): raise RuntimeError("Cannot extract on existing dir")
+        ext_path.mkdir(parents=True)
+        with tempfile.TemporaryDirectory() as tmpdir_str:
+            tmpdir = Path(tmpdir_str)
+            with open(archive_path, "rb") as f:
+                dctx = zstd.ZstdDecompressor()
+                with dctx.stream_reader(f) as reader:
+                    with tarfile.open(fileobj=reader, mode="r|*") as tar: # stream mode
+                        for member in tar:
+                            if member.islnk() or member.issym():
+                                raise RuntimeError(f"Symlinks/hardlinks are not allowed: {member.name}")
+                            if member.isdev() or member.isfifo():
+                                raise RuntimeError(f"Unsupported device in archive: {member.name}")
+                            tar.extract(member, path=tmpdir, numeric_owner=False)
+            # Checks repo limits
+            check_repo_limits(tmpdir)
+            # Move from temp dir
+            for item in tmpdir.iterdir():
+                    shutil.move(item, ext_path)
+        # Permissons restrictions
+        for path in ext_path.rglob("*"):
+            if path.is_file():
+                path.chmod(0o400)
+            elif path.is_dir():
+                path.chmod(0o500)
+
+def remove_protected_dir(path: Path):
+    path.chmod(0o700)
+    for child in path.rglob("*"):
+        child.chmod(0o700)
+    shutil.rmtree(path)
+
+def remove_extracted(repo_path: Path) -> None:
+    ext_path = repo_path / "extracted"
+    if not ext_path.exists():
+        return 
+    with RepoLock(repo_path):
+        if ext_path.exists():
+            remove_protected_dir(ext_path)
+
+def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
+    ext_path = repo_path / "extracted"
+    if not ext_path.exists(): 
+        extract_repo(repo_path)
+    path = (ext_path / sub_path).resolve()
+    if not path.is_relative_to(ext_path):
+        raise RepoError(400, "Invalid subpath")
+    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
+        raise RepoError(400, "Symlinks are not allowed")
+    if not path.exists(): raise RepoError(404)
+    return path
 
 def encrypt_ssh_key(ssh_key: str) -> str:
     return FERNET.encrypt(ssh_key.encode()).decode()

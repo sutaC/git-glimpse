@@ -13,6 +13,9 @@ def remove_dir(path: Path):
     shutil.rmtree(path)
 
 def main():
+    if not DATABASE_PATH.exists():
+        print("Database file does not exist")
+        return
     c = sqlite3.connect(DATABASE_PATH) 
     cursor = c.cursor()
     for item in REPO_PATH.iterdir():

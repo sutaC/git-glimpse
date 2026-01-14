@@ -16,8 +16,7 @@ def is_valid_password(password: str) -> str | None:
     if len(password) >= 128:
         return "Password must max 128 characters long"
     if password != password.strip():
-        return "Password cannot have leading/trailling spaces"
-    
+        return "Password cannot have leading/trailling spaces"    
 
 def is_text(path: Path) -> bool:
     if path.is_file():
