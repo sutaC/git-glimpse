@@ -1,8 +1,10 @@
+from pathlib import Path
 import sqlite3
 import time
-from app import DATABASE_PATH
 
-def cleanup_expired_sessions():
+DATABASE_PATH = Path(__file__).parent.parent / "database.db"
+
+def main():
     now = int(time.time()) 
     with sqlite3.connect(DATABASE_PATH) as connection:
         cursor = connection.cursor()
@@ -11,4 +13,4 @@ def cleanup_expired_sessions():
         print(f"Deleted {cursor.rowcount} expired sessions.")
 
 if __name__ == "__main__":
-    cleanup_expired_sessions()
+    main()

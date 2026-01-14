@@ -1,10 +1,10 @@
 from secrets import token_urlsafe
-import time
 from typing import Literal
 from pathlib import Path
 from flask import g
 import lib.auth as auth
 import sqlite3
+import time
 import os
 
 class Database:
@@ -50,6 +50,7 @@ class Database:
             self.set_user_verified(root_id)
         cursor.close()
         self.close()
+        self.path.chmod(0o600)
 
     def connect(self) -> sqlite3.Connection:
         if "db" not in g:

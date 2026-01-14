@@ -18,7 +18,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
 
-if(not REPO_PATH.is_dir()): REPO_PATH.mkdir()
+REPO_PATH.mkdir(exist_ok=True)
 
 db = Database(DATABASE_PATH)
 with app.app_context():
@@ -72,11 +72,13 @@ def repo(repo_id: str, sub: str):
         abort(409, "Repo is not cloned on server, do a build first")
     subpath = Path(sub)
     path = (path / subpath).resolve()
-    if not path.exists() or ".git" in path.parts or REPO_PATH not in path.parents:
-        abort(404)
+    if not path.exists() or not path.is_relative_to(REPO_PATH / repo_id):
+        abort(404, "Invalid subpath")
+    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
+        abort(400, "Symlinks are not allowed")
     # Makes list of path urls to all parent dirs
-    parentchain = path.parts[path.parts.index(repo_id)+1:-1]
-    parentchain = ['/'.join(parentchain[:parentchain.index(p)+1]) for p in parentchain]
+    rel_parts = path.relative_to(REPO_PATH / repo_id).parts[:-1]  # exclude file itself
+    parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
     return render_template(
         "repo.html", 
         repo_name=repo_name,
@@ -98,14 +100,13 @@ def raw(repo_id: str, sub: str):
         abort(409, "Repo is not cloned on server")
     subpath = Path(sub)
     path = (path / subpath).resolve()
-    if not path.exists() or ".git" in path.parts or REPO_PATH not in path.parents:
-        abort(404)
+    if not path.exists() or not path.is_relative_to(REPO_PATH / repo_id):
+        abort(404, "Invalid subpath")
+    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
+        abort(400, "Symlinks are not allowed")
     if path.is_dir():
         return redirect(f"/repo/{repo_id}/{sub}", 303)
-    if utils.is_text(path):
-        with open(path, "r",) as f:
-            return Response(f.read(), mimetype="text/plain")
-    return send_file(path)
+    return send_file(path, mimetype="text/plain", as_attachment=False)
 
 @app.route("/repo/add", methods=["GET", "POST"])
 @auth.login_required()
@@ -129,9 +130,11 @@ def repo_add():
         abort(400, "To use ssh-key you need to provide ssh url")
     try:
         git.clone_repo(url, path, ssh_key)
-    except:
+    except Exception as e:
+        print(f"Cloning faield: {e}")
         abort(400, "Could not clone repo, check key if its private")
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
+    if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
     db.add_repo(repo_id, g.user.user_id, url, repo_name, ssh_key)
     db.close()
     return redirect(f"/repo/{repo_id}/")
@@ -231,7 +234,6 @@ def details(repo_id: str):
     # TODO: basic information, editing and building 
     return render_template("details.html", repo_name=repo_name)
     
-
 @app.teardown_appcontext
 def db_close(error=None):
     db.close()

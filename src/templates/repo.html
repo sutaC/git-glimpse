@@ -17,10 +17,10 @@
         <header>
             <h1 class="curr_path">
                 {% if path_str %}
-                <a href="/repo/{{id|urlencode}}/">{{repo_name}}</a>
+                <a href="/repo/{{repo_id|urlencode}}/">{{repo_name}}</a>
                 {% else %} {{repo_name}} {% endif %} {% for parent in
                 parent_chain %} /
-                <a href="/repo/{{id|urlencode}}/{{parent|urlencode}}"
+                <a href="/repo/{{repo_id|urlencode}}/{{parent|urlencode}}"
                     >{{parent.rsplit('/',1)[-1]}}</a
                 >
                 {% endfor %} {% if path_str %} / {{path.name}} {%endif%}
