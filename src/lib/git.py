@@ -1,10 +1,10 @@
 from pathlib import Path
-import zipfile
 from cryptography.fernet import Fernet 
 import zstandard as zstd
 import subprocess
 import tempfile
 import tarfile
+import zipfile
 import shutil
 import time
 import os
@@ -95,8 +95,9 @@ def check_repo_limits(path: Path):
             raise RuntimeError("Sockets are not allowed")
         elif f.is_block_device():
             raise RuntimeError("Block devices are not allowed")
+    return total_size
    
-def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None):
+def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> int:
     env = None
     key_path = None
     try:
@@ -133,7 +134,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None):
             if gitmodules_dir.exists(): 
                 raise RuntimeError("Git modules are not allowed")
             # Checks repo limits
-            check_repo_limits(tmpdir)
+            repo_size = check_repo_limits(tmpdir)
             # Ensures target dir is empty
             if repo_dir.exists():
                 shutil.rmtree(repo_dir)
@@ -142,6 +143,8 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None):
             archive_path = repo_dir / "repo.tar.zst"
             compress_repo(tmpdir, archive_path)
             archive_path.chmod(0o400)
+            # returns repo size
+            return repo_size
     finally:
         if key_path: key_path.unlink(missing_ok=True)
 

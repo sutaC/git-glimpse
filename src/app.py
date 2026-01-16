@@ -1,6 +1,5 @@
 from tempfile import NamedTemporaryFile
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from datetime import datetime, timezone
 from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
@@ -123,8 +122,6 @@ def raw(repo_id: str, sub: str):
         return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
 
-
-
 @app.route("/repo/add", methods=["GET", "POST"])
 @auth.login_required()
 def repo_add():
@@ -146,13 +143,13 @@ def repo_add():
     if url.startswith("https://") and ssh_key:
         abort(400, "To use ssh-key you need to provide ssh url")
     try:
-        git.clone_repo(url, path, ssh_key)
+        repo_size = git.clone_repo(url, path, ssh_key)
     except Exception as e:
-        print(f"Cloning faield: {e}")
         abort(400, "Could not clone repo, check key if its private")
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
     if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
     db.add_repo(repo_id, g.user.user_id, url, repo_name, ssh_key)
+    db.add_build(g.user.user_id, repo_id, repo_size)
     db.close()
     return redirect(f"/repo/{repo_id}/")
 
@@ -248,14 +245,56 @@ def details(repo_id: str):
     if not repo: abort(404)
     repo_name, url, repo_user_id, created = repo
     if repo_user_id != g.user.user_id: abort(404)
-    # TODO: building 
+    build = db.get_latest_build(repo_id)
+    build_timestamp = None
+    build_size = None
+    if build: build_timestamp, build_size = build
     return render_template(
-        "details.html", 
+        "details.html",
+        repo_id=repo_id,
         repo_name=repo_name,
         url=url,
-        created=datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        created=utils.timestamp_to_str(created),
+        build_timestamp=("?" if build_timestamp is None else utils.timestamp_to_str(build_timestamp)),
+        build_size=("?" if build_size is None else utils.size_to_str(build_size))
     )
-    
+
+@app.route("/repo/build/<string:repo_id>")
+def build(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
+    repo = db.get_repo_for_clone(repo_id)
+    if not repo: abort(404)
+    user_id, url, ssh_key = repo
+    if user_id != g.user.user_id: abort(404)
+    # TODO check limits
+    path = REPO_PATH / repo_id
+    try:
+        if path.exists(): git.remove_protected_dir(path)
+        if ssh_key: ssh_key = git.decrypt_ssh_key(ssh_key)
+        repo_size = git.clone_repo(url, path, )
+        db.add_build(user_id, repo_id, repo_size)
+    except Exception as e:
+        print(f"Build failed: {e}")
+        abort(500, "Build failed")
+    finally:
+        db.close()
+    return redirect(f"/repo/details/{repo_id}")
+
+@app.route("/repo/remove/<string:repo_id>")
+def remove(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
+    user_id = db.get_repo_user_id(repo_id)
+    if not user_id or user_id != g.user.user_id: abort(404)
+    db.delete_repo(repo_id)
+    db.close()
+    path = REPO_PATH / repo_id
+    try:
+        if path.exists(): git.remove_protected_dir(path)
+    except Exception as e:
+        print(f"Removal failed: {e}")
+        abort(500, "Removal failed")
+    return redirect("/dashboard")
+
 @app.teardown_appcontext
 def db_close(error=None):
     db.close()

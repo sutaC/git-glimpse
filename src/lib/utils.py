@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 
@@ -26,3 +27,13 @@ def is_text(path: Path) -> bool:
         except UnicodeDecodeError:
             return False
     return True
+
+def timestamp_to_str(timestamp: int) -> str:
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+def size_to_str(size: int) -> str:
+    for unit in ("B", "KB", "MB"):
+        if size < 1024:
+            return f"{size} {unit}"
+        size //= 1024
+    return f"{size} GB"

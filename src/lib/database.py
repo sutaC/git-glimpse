@@ -40,6 +40,15 @@ class Database:
                 UNIQUE(`user_id`, `url`)
             );
             CREATE INDEX IF NOT EXISTS `idx_repos_user_id` ON `repos`(`user_id`);
+            CREATE TABLE IF NOT EXISTS `builds` (
+                `id` INTEGER PRIMARY KEY,
+                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `repo_id` TEXT REFERENCES `repos`(`id`) ON DELETE SET NULL,
+                `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `size` INTEGER NOT NULL CHECK (size >= 0)
+            );
+            CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
+            CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
         ''')
         self.connect().commit()
         cursor.execute("SELECT `id` FROM `users` WHERE `login` = 'root';")
@@ -101,12 +110,32 @@ class Database:
         cursor.close()
         return res[0] if res else None
     
+    def get_repo_user_id(self, repo_id:str) -> int | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `user_id` FROM `repos` WHERE `id` = ?;', [repo_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res[0] if res else None
+
+    def get_repo_for_clone(self, repo_id:str) -> tuple[int, str, str] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `user_id`, `url`, `ssh_key` FROM `repos` WHERE `id` = ?;', [repo_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res
+    
     def get_repo(self, repo_id:str) -> tuple[str, str, int, int] | None:
         cursor = self.connect().cursor()
         cursor.execute('SELECT `repo_name`, `url`, `user_id`, `created` FROM `repos` WHERE `id` = ?;', [repo_id])
         res = cursor.fetchone()
         cursor.close()
         return res
+    
+    def delete_repo(self, repo_id: str) -> None:
+        cursor = self.connect().cursor()
+        cursor.execute('DELETE FROM `repos` WHERE `id` = ?;', [repo_id])
+        self.connect().commit()
+        cursor.close()
 
     def add_user(self, login:str, email:str, password:str, role:Literal['u','a'] = 'u') -> int:
         cursor = self.connect().cursor()
@@ -175,15 +204,29 @@ class Database:
         cursor.close()
 
     def delete_all_expired_sessions(self) -> None:
-        now = int(time.time())
         cursor = self.connect().cursor()
-        cursor.execute('DELETE FROM `sessions` WHERE `expires` < ?;', [now])
+        cursor.execute('DELETE FROM `sessions` WHERE `expires` < unixepoch();')
         self.connect().commit()        
         cursor.close()
 
     def delete_user_expired_sessions(self, user_id: int) -> None:
-        now = int(time.time())
         cursor = self.connect().cursor()
-        cursor.execute('DELETE FROM `sessions` WHERE `user_id` = ? AND `expires` < ?;', [user_id, now])
+        cursor.execute('DELETE FROM `sessions` WHERE `user_id` = ? AND `expires` < unixepoch();', [user_id])
         self.connect().commit()        
         cursor.close()
+
+    def add_build(self, user_id: int, repo_id: str, size: int) -> None:
+        cursor = self.connect().cursor()
+        cursor.execute("INSERT INTO `builds` (`user_id`, `repo_id`, `size`) VALUES (?, ?);", [user_id, repo_id, size])
+        self.connect().commit()
+        cursor.close()
+
+    def get_latest_build(self, repo_id: str) -> tuple[int, int] | None:
+        cursor = self.connect().cursor()
+        cursor.execute("SELECT `timestamp`, `size` FROM `builds` WHERE `repo_id` = ? ORDER BY `timestamp` DESC LIMIT 1;", 
+            [repo_id]
+        )
+        res = cursor.fetchone()
+        cursor.close()
+        return res
+    

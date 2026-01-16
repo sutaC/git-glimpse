@@ -12,7 +12,10 @@
     </head>
     <body>
         <header>
-            <h1>Details - {{repo_name}}</h1>
+            <h1>
+                Details -
+                <a href="/repo/{{repo_id|urlencode}}">{{repo_name}}</a>
+            </h1>
             <a href="/">Home</a>
             <a href="/dashboard">Dashboard</a>
         </header>
@@ -20,6 +23,15 @@
             <p>Name: {{repo_name}}</p>
             <p>URL: {{url}}</p>
             <p>Created at: {{created}}</p>
+            <p>Last build at: {{build_timestamp}}</p>
+            <p>Size: {{build_size}}</p>
+            <p>
+                <a href="/repo/build/{{repo_id|urlencode}}">Build</a> (builds
+                used: 0/10)
+            </p>
+            <p>
+                <a href="/repo/remove/{{repo_id|urlencode}}">Remove</a>
+            </p>
         </main>
         <footer>
             Made by:
