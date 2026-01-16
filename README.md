@@ -8,8 +8,4 @@ _description_
 
 ## Cron Jobs
 
-Scripts made to run in regular intervals:
-
--   [cleanup_sessions.py](scripts/cleanup_sessions.py) suggested: once a day
--   [cleanup_repos.py](scripts/cleanup_repos.py) suggested: once a day
--   [cleanup_extracted.py](scripts/cleanup_extracted.py) suggested: once a day
+Script [cleanup.py](scripts/cleanup.py) is made for global cleanup, meant for running in intervals by for example cron job (suggested interval: once a day)

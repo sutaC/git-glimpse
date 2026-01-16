@@ -36,6 +36,7 @@ class Database:
                 `url` TEXT NOT NULL,
                 `repo_name` TEXT NOT NULL,
                 `ssh_key` TEXT,
+                `created` INTEGER NOT NULL DEFAULT (unixepoch()),
                 UNIQUE(`user_id`, `url`)
             );
             CREATE INDEX IF NOT EXISTS `idx_repos_user_id` ON `repos`(`user_id`);
@@ -100,9 +101,9 @@ class Database:
         cursor.close()
         return res[0] if res else None
     
-    def get_repo(self, repo_id:str) -> tuple[str, int] | None:
+    def get_repo(self, repo_id:str) -> tuple[str, str, int, int] | None:
         cursor = self.connect().cursor()
-        cursor.execute('SELECT `repo_name`, `user_id` FROM `repos` WHERE `id` = ?;', [repo_id])
+        cursor.execute('SELECT `repo_name`, `url`, `user_id`, `created` FROM `repos` WHERE `id` = ?;', [repo_id])
         res = cursor.fetchone()
         cursor.close()
         return res

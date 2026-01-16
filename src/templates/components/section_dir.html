@@ -4,6 +4,9 @@
         <h2>
             {% if path_str %} {{path.name}} {% else %} {{repo_name}} {% endif %}
         </h2>
+        {% if not path_str %}
+        <a href="/raw/{{repo_id|urlencode}}/">Download</a>
+        {% endif %}
     </div>
     <ul class="dir_contents">
         {% if path_str %}

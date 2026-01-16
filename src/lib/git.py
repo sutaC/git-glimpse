@@ -1,4 +1,5 @@
 from pathlib import Path
+import zipfile
 from cryptography.fernet import Fernet 
 import zstandard as zstd
 import subprocess
@@ -207,6 +208,18 @@ def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
         raise RepoError(400, "Symlinks are not allowed")
     if not path.exists(): raise RepoError(404)
     return path
+
+def zip_repo(ext_path: Path, zip_path: Path) -> None:
+    with zipfile.ZipFile(
+        zip_path,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=6,
+    ) as zf:
+        for path in ext_path.rglob("*"):
+            arcname = path.relative_to(ext_path)
+            if path.is_file():
+                zf.write(path, arcname)
 
 def encrypt_ssh_key(ssh_key: str) -> str:
     return FERNET.encrypt(ssh_key.encode()).decode()

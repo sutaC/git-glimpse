@@ -1,4 +1,6 @@
+from tempfile import NamedTemporaryFile
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
+from datetime import datetime, timezone
 from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
@@ -89,6 +91,7 @@ def repo(repo_id: str, sub: str):
         is_text=utils.is_text(path)
     )
 
+@app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/raw/<string:repo_id>/<path:sub>")
 def raw(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
@@ -104,8 +107,23 @@ def raw(repo_id: str, sub: str):
     except git.RepoError as e:
         abort(e.code, e.msg)
     if path.is_dir():
-        return redirect(f"/repo/{repo_id}/{sub}", 303)
+        if sub: return redirect(f"/repo/{repo_id}/{sub}", 303)
+        # Downloading repo archive
+        with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
+            zip_path = Path(tmp.name)
+            git.zip_repo(path, zip_path)
+            return send_file(
+                zip_path,
+                mimetype="application/zip",
+                download_name="repo.zip",
+                as_attachment=True,
+            )
+        archive_path = repo_path / "repo.tar.zst"
+        if not archive_path.exists(): abort(404)
+        return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
+
+
 
 @app.route("/repo/add", methods=["GET", "POST"])
 @auth.login_required()
@@ -228,10 +246,15 @@ def details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
     if not repo: abort(404)
-    repo_name, repo_user_id = repo
+    repo_name, url, repo_user_id, created = repo
     if repo_user_id != g.user.user_id: abort(404)
-    # TODO: basic information, editing and building 
-    return render_template("details.html", repo_name=repo_name)
+    # TODO: building 
+    return render_template(
+        "details.html", 
+        repo_name=repo_name,
+        url=url,
+        created=datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
     
 @app.teardown_appcontext
 def db_close(error=None):

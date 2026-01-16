@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -12,11 +12,15 @@
     </head>
     <body>
         <header>
-            <h1>{{repo_name}}</h1>
+            <h1>Details - {{repo_name}}</h1>
             <a href="/">Home</a>
             <a href="/dashboard">Dashboard</a>
         </header>
-        <main>...</main>
+        <main>
+            <p>Name: {{repo_name}}</p>
+            <p>URL: {{url}}</p>
+            <p>Created at: {{created}}</p>
+        </main>
         <footer>
             Made by:
             <a
