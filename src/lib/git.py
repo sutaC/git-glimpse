@@ -193,6 +193,7 @@ def extract_repo(repo_path: Path) -> None:
                 path.chmod(0o500)
 
 def remove_protected_dir(path: Path):
+    if not path.exists(): return
     path.chmod(0o700)
     for child in path.rglob("*"):
         child.chmod(0o700)

@@ -45,3 +45,9 @@ def code_to_status(code: str):
         case 'f': return "failed"
         case 'v': return "violation"
         case _: return "?"
+
+def code_to_role(code: str) -> str:
+    match code:
+        case 'a': return "admin"
+        case 'u': return "user"
+        case _: return "?"

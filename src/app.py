@@ -252,8 +252,6 @@ def logout():
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
 # TODO: /admin : admin panel (++)
-# TODO: /user : user account info
-# TODO: /user/remove : removes user account
 
 @app.route("/dashboard")
 @auth.login_required()
@@ -368,6 +366,40 @@ def remove(repo_id: str):
         print(f"Removal failed: {e}")
         abort(500, "Removal failed")
     return redirect("/dashboard")
+
+@app.route("/user")
+@auth.login_required()
+def user():
+    email = db.get_user_email(g.user.user_id)
+    return render_template(
+        "user.html",
+        user_login=g.user.login, 
+        role=utils.code_to_role(g.user.role), 
+        is_verified=g.user.is_verified,
+        email=email
+    )
+
+@app.route("/user/remove", methods=["GET", "POST"])
+@auth.login_required()
+def user_remove():
+    if request.method == "GET":
+        return render_template("user_remove.html", user_login=g.user.login)
+    if g.user.login == "root":
+        abort(400, "Cannot remove root user")
+    send_password = request.form.get("password")
+    if not send_password: abort(404, "Password is required for that action")
+    user = db.get_user_password(g.user.login)
+    assert user is not None
+    user_id, password, role = user
+    if not auth.check_password(send_password, password):
+        db.close()
+        abort(404, "Incorrect password")
+    repo_ids = db.get_all_user_repos(g.user.user_id)
+    for rid, rname in repo_ids:
+        git.remove_protected_dir(REPO_PATH / rid)
+    db.delete_user(g.user.user_id)
+    db.close()
+    return redirect("/login")
 
 @app.teardown_appcontext
 def db_close(error=None):

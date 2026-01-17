@@ -214,6 +214,19 @@ class Database:
         cursor.close()
         return res
     
+    def delete_user(self, user_id: int) -> None:
+        cursor = self.connect().cursor()
+        cursor.execute('DELETE FROM `users` WHERE `id` = ?;', [user_id])
+        self.connect().commit()
+        cursor.close()
+    
+    def get_user_email(self, user_id: int) -> str | None:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `email` FROM `users` WHERE `id` = ?;', [user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res[0] if res else None    
+    
     def add_session(self, user_id: int, expires: int) -> str:
         cursor = self.connect().cursor()
         id = token_urlsafe(32)
