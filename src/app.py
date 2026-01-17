@@ -70,7 +70,7 @@ def repo(repo_id: str, sub: str):
         abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
-        abort(500, "Repo is not on server")
+        abort(410, "Repo is not on server")
     subpath = Path(sub)
     try:
         path = git.get_repo_path(repo_path, subpath)
@@ -99,7 +99,7 @@ def raw(repo_id: str, sub: str):
     if not repo_name: abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
-        abort(500, "Repo is not on server")
+        abort(410, "Repo is not on server")
     subpath = Path(sub)
     try:
         path = git.get_repo_path(repo_path, subpath)
@@ -114,10 +114,10 @@ def raw(repo_id: str, sub: str):
             return send_file(
                 zip_path,
                 mimetype="application/zip",
-                download_name="repo.zip",
+                download_name=f"{repo_name}.zip",
                 as_attachment=True,
             )
-        archive_path = repo_path / "repo.tar.zst"
+        archive_path = repo_path / "build.tar.zst"
         if not archive_path.exists(): abort(404)
         return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
@@ -137,7 +137,22 @@ def repo_add():
     else: ssh_key = None
     if not utils.is_valid_repo_url(url):
         abort(400, "Invalid url")
-    # TODO check limits
+    if db.is_repo_url_for_user(url, g.user.user_id):
+        db.close()
+        abort(400, "Repo with that url already exists for that user")
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits:
+        db.close()
+        abort(500, "Could not resolve user limits")
+    builds_repo_limit, builds_user_limit, repo_limit = limits
+    user_repos = db.get_repo_count(g.user.user_id)
+    if user_repos >= repo_limit:
+        db.close()
+        abort(400, f"Reached repo limit per user ({user_repos}/{repo_limit})")
+    user_builds = db.get_user_build_count(g.user.user_id)
+    if user_builds >= builds_user_limit:
+        db.close()
+        abort(400, f"Reached build limit per user ({user_builds}/{builds_user_limit})")
     repo_id = db.generate_repo_id(REPO_PATH)
     path = REPO_PATH / repo_id
     if url.startswith("https://") and ssh_key:
@@ -229,26 +244,54 @@ def logout():
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
 # TODO: /admin : admin panel (++)
+# TODO: /user : user account info
+# TODO: /user/remove : removes user account
 
 @app.route("/dashboard")
 @auth.login_required()
 def dashboard():
     # TODO: verification message if not verified
     repos = db.get_all_user_repos(g.user.user_id)
-    return render_template("dashboard.html", repos=repos)
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits:
+        db.close()
+        abort(500, "Could not resolve user limits")
+    builds_repo_limit, builds_user_limit, repo_limit = limits
+    user_build_count = db.get_user_build_count(g.user.user_id)
+    repo_count = db.get_repo_count(g.user.user_id)
+    db.close()
+    return render_template(
+        "dashboard.html", 
+        repos=repos, 
+        builds_user_limit=builds_user_limit,
+        user_build_count=user_build_count,
+        repo_limit=repo_limit,
+        repo_count=repo_count
+    )
 
 @app.route("/repo/details/<string:repo_id>")
 @auth.login_required()
 def details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
-    if not repo: abort(404)
+    if not repo: 
+        db.close()
+        abort(404)
     repo_name, url, repo_user_id, created = repo
-    if repo_user_id != g.user.user_id: abort(404)
+    if repo_user_id != g.user.user_id: 
+        db.close()
+        abort(404)
     build = db.get_latest_build(repo_id)
     build_timestamp = None
     build_size = None
     if build: build_timestamp, build_size = build
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits:
+        db.close()
+        abort(500, "Could not resolve user limits")
+    builds_repo_limit, builds_user_limit, repo_limit = limits
+    repo_build_count = db.get_repo_build_count(repo_id)
+    db.close()
     return render_template(
         "details.html",
         repo_id=repo_id,
@@ -256,7 +299,9 @@ def details(repo_id: str):
         url=url,
         created=utils.timestamp_to_str(created),
         build_timestamp=("?" if build_timestamp is None else utils.timestamp_to_str(build_timestamp)),
-        build_size=("?" if build_size is None else utils.size_to_str(build_size))
+        build_size=("?" if build_size is None else utils.size_to_str(build_size)),
+        builds_repo_limit=builds_repo_limit,
+        repo_build_count=repo_build_count
     )
 
 @app.route("/repo/build/<string:repo_id>")
@@ -266,10 +311,21 @@ def build(repo_id: str):
     if not repo: abort(404)
     user_id, url, ssh_key = repo
     if user_id != g.user.user_id: abort(404)
-    # TODO check limits
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits:
+        db.close()
+        abort(500, "Could not resolve user limits")
+    builds_repo_limit, builds_user_limit, repo_limit = limits
+    user_builds = db.get_user_build_count(g.user.user_id)
+    if user_builds >= builds_user_limit:
+        db.close()
+        abort(400, f"Reached build limit per user ({user_builds}/{builds_user_limit})")
+    repo_builds = db.get_repo_build_count(repo_id)
+    if repo_builds >= builds_repo_limit:
+        db.close()
+        abort(400, f"Reached build limit per repo ({repo_builds}/{builds_repo_limit})")
     path = REPO_PATH / repo_id
     try:
-        if path.exists(): git.remove_protected_dir(path)
         if ssh_key: ssh_key = git.decrypt_ssh_key(ssh_key)
         repo_size = git.clone_repo(url, path, )
         db.add_build(user_id, repo_id, repo_size)

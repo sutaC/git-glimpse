@@ -4,7 +4,6 @@ from pathlib import Path
 from flask import g
 import lib.auth as auth
 import sqlite3
-import time
 import os
 
 class Database:
@@ -14,14 +13,30 @@ class Database:
     def init_db(self) -> None:
         cursor = self.connect().cursor()
         cursor.executescript('''
+            -- roles
+            CREATE TABLE IF NOT EXISTS `roles` (
+                `id` TEXT PRIMARY KEY,
+                `name` TEXT NOT NULL UNIQUE,
+                `builds_repo_limit` INTEGER NOT NULL CHECK (`builds_repo_limit` > 0),
+                `builds_user_limit` INTEGER NOT NULL CHECK (`builds_user_limit` > 0),
+                `repo_limit` INTEGER NOT NULL CHECK (`repo_limit` > 0)
+            );
+            INSERT INTO roles (`id`, `name`, `builds_repo_limit`, `builds_user_limit`, `repo_limit`)
+            VALUES
+                ('u', 'User', 10, 30, 3),
+                ('a', 'Admin', 100, 1000, 10)
+            ON CONFLICT(`id`) DO NOTHING;                    
+            -- users
             CREATE TABLE IF NOT EXISTS `users` (
                 `id` INTEGER PRIMARY KEY,
                 `login` TEXT NOT NULL UNIQUE,
                 `email` TEXT NOT NULL UNIQUE,
                 `password` TEXT NOT NULL,
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
-                `role` TEXT DEFAULT 'u' NOT NULL CHECK (`role` IN ('u', 'a'))
+                `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
             );
+            CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
+            -- sessions
             CREATE TABLE IF NOT EXISTS `sessions` (
                 `id` TEXT PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -30,6 +45,7 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS `idx_sessions_expires` ON `sessions`(`expires`);
             CREATE INDEX IF NOT EXISTS `idx_sessions_user_id` ON `sessions`(`user_id`);
+            -- repos
             CREATE TABLE IF NOT EXISTS `repos` (
                 `id` TEXT PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -40,6 +56,7 @@ class Database:
                 UNIQUE(`user_id`, `url`)
             );
             CREATE INDEX IF NOT EXISTS `idx_repos_user_id` ON `repos`(`user_id`);
+            -- builds
             CREATE TABLE IF NOT EXISTS `builds` (
                 `id` INTEGER PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -131,6 +148,20 @@ class Database:
         cursor.close()
         return res
     
+    def is_repo_url_for_user(self, url:str, user_id:int) -> bool:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT `id` FROM `repos` WHERE `url` = ? AND `user_id` = ?;', [url, user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return bool(res)
+
+    def get_repo_count(self, user_id: int) -> int:
+        cursor = self.connect().cursor()
+        cursor.execute('SELECT COUNT(*) FROM `repos` WHERE `user_id` = ?;', [user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res[0]
+
     def delete_repo(self, repo_id: str) -> None:
         cursor = self.connect().cursor()
         cursor.execute('DELETE FROM `repos` WHERE `id` = ?;', [repo_id])
@@ -217,7 +248,7 @@ class Database:
 
     def add_build(self, user_id: int, repo_id: str, size: int) -> None:
         cursor = self.connect().cursor()
-        cursor.execute("INSERT INTO `builds` (`user_id`, `repo_id`, `size`) VALUES (?, ?);", [user_id, repo_id, size])
+        cursor.execute("INSERT INTO `builds` (`user_id`, `repo_id`, `size`) VALUES (?, ?, ?);", [user_id, repo_id, size])
         self.connect().commit()
         cursor.close()
 
@@ -230,3 +261,35 @@ class Database:
         cursor.close()
         return res
     
+    def get_user_build_count(self, user_id: int) -> int:
+        cursor = self.connect().cursor()
+        # User builds younger than 1 week
+        cursor.execute('''
+            SELECT COUNT(*) FROM `builds` 
+            WHERE `user_id` = ? AND `builds`.`timestamp` > unixepoch() - 7*24*3600;
+        ''', [user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res[0]
+    
+    def get_repo_build_count(self, repo_id: str) -> int:
+        cursor = self.connect().cursor()
+        # Repo builds younger than 1 week
+        cursor.execute('''
+            SELECT COUNT(*) FROM `builds` 
+            WHERE `repo_id` = ? AND `builds`.`timestamp` > unixepoch() - 7*24*3600;
+        ''', [repo_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res[0]
+    
+    def get_user_limits(self, user_id: int) -> tuple[int, int, int] | None:
+        cursor = self.connect().cursor()
+        cursor.execute('''
+            SELECT `roles`.`builds_repo_limit`, `roles`.`builds_user_limit`, `roles`.`repo_limit` 
+            FROM `users` JOIN `roles` ON `users`.`role` = `roles`.`id` 
+            WHERE `users`.`id` = ?;
+        ''', [user_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return res

@@ -137,10 +137,10 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> int:
             repo_size = check_repo_limits(tmpdir)
             # Ensures target dir is empty
             if repo_dir.exists():
-                shutil.rmtree(repo_dir)
+                remove_protected_dir(repo_dir)
             repo_dir.mkdir(exist_ok=True, parents=True)
             # Moves files to repo_dir archive
-            archive_path = repo_dir / "repo.tar.zst"
+            archive_path = repo_dir / "build.tar.zst"
             compress_repo(tmpdir, archive_path)
             archive_path.chmod(0o400)
             # returns repo size
@@ -156,7 +156,7 @@ def compress_repo(src_dir: Path, archive_path: Path, compression_level: int = 3)
                 tar.add(src_dir, arcname="")
 
 def extract_repo(repo_path: Path) -> None:
-    archive_path = repo_path / "repo.tar.zst"
+    archive_path = repo_path / "build.tar.zst"
     if not archive_path.exists(): raise RuntimeError("Archive doesnt exist")
     with RepoLock(repo_path):
         ext_path = repo_path / "extracted"
@@ -206,7 +206,7 @@ def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
         extract_repo(repo_path)
     path = (ext_path / sub_path).resolve()
     if not path.is_relative_to(ext_path):
-        raise RepoError(400, "Invalid subpath")
+        raise RepoError(404, "Invalid subpath")
     if path.is_symlink() or any(p.is_symlink() for p in path.parents):
         raise RepoError(400, "Symlinks are not allowed")
     if not path.exists(): raise RepoError(404)

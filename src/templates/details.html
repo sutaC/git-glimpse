@@ -26,8 +26,8 @@
             <p>Last build at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
             <p>
-                <a href="/repo/build/{{repo_id|urlencode}}">Build</a> (builds
-                used: 0/10)
+                <a href="/repo/build/{{repo_id|urlencode}}">Build</a> (repo
+                builds limit: {{repo_build_count}}/{{builds_repo_limit}})
             </p>
             <p>
                 <a href="/repo/remove/{{repo_id|urlencode}}">Remove</a>

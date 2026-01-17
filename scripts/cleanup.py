@@ -7,13 +7,13 @@ PROJECT_ROOT_PATH = Path(__file__).parent.parent
 DATABASE_PATH = PROJECT_ROOT_PATH / "database.db"
 REPO_PATH = PROJECT_ROOT_PATH / "repo"
 
-# --- repos
 def remove_dir(path: Path):
     path.chmod(0o700)
     for child in path.rglob("*"):
         child.chmod(0o700)
     shutil.rmtree(path)
 
+# --- repos
 def cleanup_repos():
     print("# Starting repos cleanup")
     if not DATABASE_PATH.exists():
@@ -27,7 +27,7 @@ def cleanup_repos():
         repo = cursor.fetchone()
         if not repo: # Repo id not in db
             remove_dir(item)
-            print(f"Deleted repo {item.name} -- not existent in db")
+            print(f"Removing repo {item} -- not existent in db")
             count += 1
             continue
         user_id: int = repo[0]
@@ -37,13 +37,12 @@ def cleanup_repos():
             cursor.execute("DELETE FROM `repos` WHERE `user_id` = ?;", [user_id])
             c.commit()
             remove_dir(item)
-            print(f"Deleted repo {item.name} -- no user attached")
+            print(f"Removing repo {item} -- no user attached")
             count += 1
             continue
     cursor.close()
     c.close()
     print(f"Deleted {count} repos")
-
 
 # --- extracted
 class RepoLock:
@@ -77,29 +76,18 @@ class RepoLock:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release()
 
-def remove_protected_dir(path: Path):
-    path.chmod(0o700)
-    for child in path.rglob("*"):
-        child.chmod(0o700)
-    shutil.rmtree(path)
-
-def remove_extracted(repo_path: Path) -> None:
-    ext_path = repo_path / "extracted"
-    if not ext_path.exists():
-        return 
-    with RepoLock(repo_path):
-        if ext_path.exists():
-            remove_protected_dir(ext_path)
-
 def cleanup_extracted():
     print("# Starting extracted cleanup")
     count = 0
     for item in REPO_PATH.iterdir():
-        print(f"Removing {item}/extracted")
-        remove_extracted(item)
-        count += 1
+        ext_path = item / "extracted"
+        if not ext_path.exists(): continue 
+        with RepoLock(ext_path):
+            if ext_path.exists():
+                remove_dir(ext_path)
+                print(f"Removing {item}/extracted")
+                count += 1
     print(f"Deleted {count} extracted")
-    
 
 # --- sessions
 def cleanup_sessions():
@@ -149,5 +137,5 @@ def cleanup_builds():
 if __name__ == "__main__":
     cleanup_repos()
     cleanup_extracted()
-    cleanup_sessions()
     cleanup_builds()
+    cleanup_sessions()
