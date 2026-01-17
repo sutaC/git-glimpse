@@ -61,8 +61,9 @@ class Database:
                 `id` INTEGER PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `repo_id` TEXT REFERENCES `repos`(`id`) ON DELETE SET NULL,
+                `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v')), 
                 `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
-                `size` INTEGER NOT NULL CHECK (size >= 0)
+                `size` INTEGER CHECK (`size` >= 0)
             );
             CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
             CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
@@ -246,15 +247,34 @@ class Database:
         self.connect().commit()        
         cursor.close()
 
-    def add_build(self, user_id: int, repo_id: str, size: int) -> None:
+    def add_build(self, user_id: int, repo_id: str) -> int:
         cursor = self.connect().cursor()
-        cursor.execute("INSERT INTO `builds` (`user_id`, `repo_id`, `size`) VALUES (?, ?, ?);", [user_id, repo_id, size])
+        cursor.execute('INSERT INTO `builds` (`user_id`, `repo_id`) VALUES (?, ?);', [user_id, repo_id])
+        build_id = cursor.lastrowid
+        assert isinstance(build_id, int)
+        self.connect().commit()
+        cursor.close()
+        return build_id
+    
+    def update_build(self, build_id: int, status: str, size: int | None = None) -> None:
+        cursor = self.connect().cursor()
+        cursor.execute(
+            'UPDATE `builds` SET `status` = ?, `size` = ? WHERE `id` = ?;', 
+            [status, size, build_id]
+        )
         self.connect().commit()
         cursor.close()
 
-    def get_latest_build(self, repo_id: str) -> tuple[int, int] | None:
+    def has_repo_pending_build(self, repo_id: str) -> bool:
         cursor = self.connect().cursor()
-        cursor.execute("SELECT `timestamp`, `size` FROM `builds` WHERE `repo_id` = ? ORDER BY `timestamp` DESC LIMIT 1;", 
+        cursor.execute("SELECT `id` FROM `builds` WHERE `status` = 'p' AND `repo_id` = ?;", [repo_id])
+        res = cursor.fetchone()
+        cursor.close()
+        return bool(res)
+
+    def get_latest_build(self, repo_id: str) -> tuple[str, int, int | None] | None:
+        cursor = self.connect().cursor()
+        cursor.execute("SELECT `status`, `timestamp`, `size` FROM `builds` WHERE `repo_id` = ? ORDER BY `timestamp` DESC LIMIT 1;", 
             [repo_id]
         )
         res = cursor.fetchone()

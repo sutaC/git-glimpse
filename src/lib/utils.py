@@ -37,3 +37,11 @@ def size_to_str(size: int) -> str:
             return f"{size} {unit}"
         size //= 1024
     return f"{size} GB"
+
+def code_to_status(code: str):
+    match code:
+        case 'p': return "pending"
+        case 's': return "success"
+        case 'f': return "failed"
+        case 'v': return "violation"
+        case _: return "?"

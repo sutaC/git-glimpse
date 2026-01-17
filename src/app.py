@@ -157,16 +157,24 @@ def repo_add():
     path = REPO_PATH / repo_id
     if url.startswith("https://") and ssh_key:
         abort(400, "To use ssh-key you need to provide ssh url")
+    # adding repo
+    if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
+    repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
+    # build
+    db.add_repo(repo_id, g.user.user_id, url, repo_name, ssh_key)
+    build_id = db.add_build(g.user.user_id, repo_id)
+    repo_size = None
     try:
         repo_size = git.clone_repo(url, path, ssh_key)
-    except Exception as e:
-        abort(400, "Could not clone repo, check key if its private")
-    repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
-    if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
-    db.add_repo(repo_id, g.user.user_id, url, repo_name, ssh_key)
-    db.add_build(g.user.user_id, repo_id, repo_size)
+    except git.RepoError as re:
+        db.update_build(build_id, re.type)
+        db.close()
+        git.remove_protected_dir(path)
+        if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
+        elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
+    db.update_build(build_id, 's', repo_size)
     db.close()
-    return redirect(f"/repo/{repo_id}/")
+    return redirect(f"/repo/details/{repo_id}")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -284,7 +292,8 @@ def details(repo_id: str):
     build = db.get_latest_build(repo_id)
     build_timestamp = None
     build_size = None
-    if build: build_timestamp, build_size = build
+    build_status = None
+    if build: build_status, build_timestamp, build_size = build
     limits = db.get_user_limits(g.user.user_id)
     if not limits:
         db.close()
@@ -298,6 +307,7 @@ def details(repo_id: str):
         repo_name=repo_name,
         url=url,
         created=utils.timestamp_to_str(created),
+        build_status=("?" if build_status is None else utils.code_to_status(build_status)),
         build_timestamp=("?" if build_timestamp is None else utils.timestamp_to_str(build_timestamp)),
         build_size=("?" if build_size is None else utils.size_to_str(build_size)),
         builds_repo_limit=builds_repo_limit,
@@ -324,16 +334,24 @@ def build(repo_id: str):
     if repo_builds >= builds_repo_limit:
         db.close()
         abort(400, f"Reached build limit per repo ({repo_builds}/{builds_repo_limit})")
-    path = REPO_PATH / repo_id
-    try:
-        if ssh_key: ssh_key = git.decrypt_ssh_key(ssh_key)
-        repo_size = git.clone_repo(url, path, )
-        db.add_build(user_id, repo_id, repo_size)
-    except Exception as e:
-        print(f"Build failed: {e}")
-        abort(500, "Build failed")
-    finally:
+    if db.has_repo_pending_build(repo_id):
         db.close()
+        abort(400, "This repo already has pending build")
+    # build
+    path = REPO_PATH / repo_id
+    if ssh_key: ssh_key = git.decrypt_ssh_key(ssh_key)
+    build_id = db.add_build(g.user.user_id, repo_id)
+    repo_size = None
+    try:
+        repo_size = git.clone_repo(url, path, ssh_key)
+    except git.RepoError as re:
+        db.update_build(build_id, re.type)
+        db.close()
+        git.remove_protected_dir(path)
+        if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
+        elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
+    db.update_build(build_id, 's', repo_size)
+    db.close()
     return redirect(f"/repo/details/{repo_id}")
 
 @app.route("/repo/remove/<string:repo_id>")
