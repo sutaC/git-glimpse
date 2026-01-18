@@ -23,7 +23,7 @@ def cleanup_repos():
     cursor = c.cursor()
     count = 0
     for item in REPO_PATH.iterdir():
-        cursor.execute("SELECT `user_id` FROM `repos` WHERE `id` = ?;", [item.name])
+        cursor.execute("SELECT `user_id` FROM `repos` WHERE `id` = ?;", (item.name,))
         repo = cursor.fetchone()
         if not repo: # Repo id not in db
             remove_dir(item)
@@ -31,10 +31,10 @@ def cleanup_repos():
             count += 1
             continue
         user_id: int = repo[0]
-        cursor.execute("SELECT `id` FROM `users` WHERE `id` = ?;", [user_id])
+        cursor.execute("SELECT `id` FROM `users` WHERE `id` = ?;", (user_id,))
         user = cursor.fetchone()
         if not user: # Repo in db but user is not
-            cursor.execute("DELETE FROM `repos` WHERE `user_id` = ?;", [user_id])
+            cursor.execute("DELETE FROM `repos` WHERE `user_id` = ?;", (user_id,))
             c.commit()
             remove_dir(item)
             print(f"Removing repo {item} -- no user attached")
