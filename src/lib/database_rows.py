@@ -44,3 +44,13 @@ class Build(NamedTuple):
     status: Literal['p', 's', 'v', 'f']
     timestamp: int 
     size: int | None
+
+class Sizes(NamedTuple):
+    size: int
+    archive_size: int
+
+class BuildActivity(NamedTuple):
+    repo_id: str
+    user_login: str
+    status: Literal['p', 's', 'v', 'f']
+    timestamp: int

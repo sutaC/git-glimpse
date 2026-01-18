@@ -1,0 +1,26 @@
+.activity {
+    width: calc(100% - 0.5rem);
+    margin: 0.5rem auto;
+    border: 1px solid #000;
+}
+
+.activity :is(td, th) {
+    border: 1px solid #000;
+    text-align: center;
+}
+
+.status_success {
+    color: green;
+}
+
+.status_pending {
+    color: grey;
+}
+
+.status_violation {
+    color: coral;
+}
+
+.status_fail {
+    color: crimson;
+}

@@ -1,4 +1,3 @@
-from secrets import token_urlsafe
 from tempfile import NamedTemporaryFile
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
 from lib.database import Database
@@ -128,10 +127,10 @@ def repo_add():
         abort(400, "Repo with that url already exists for that user")
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(500, "Could not resolve user limits")
-    user_repos = db.get_repo_count(g.user.user_id)
+    user_repos = db.count_user_repos(g.user.user_id)
     if user_repos >= limits.repo_limit:
         abort(400, f"Reached repo limit per user ({user_repos}/{limits.repo_limit})")
-    user_builds = db.get_user_build_count(g.user.user_id)
+    user_builds = db.count_user_builds(g.user.user_id)
     if user_builds >= limits.builds_user_limit:
         abort(400, f"Reached build limit per user ({user_builds}/{limits.builds_user_limit})")
     if url.startswith("https://") and ssh_key:
@@ -143,14 +142,15 @@ def repo_add():
     path = REPO_PATH / repo_id
     build_id = db.add_build(g.user.user_id, repo_id)
     repo_size = None
+    archive_size = None
     try:
-        repo_size = git.clone_repo(url, path, ssh_key)
+        repo_size, archive_size = git.clone_repo(url, path, ssh_key)
     except git.RepoError as re:
         db.update_build(build_id, re.type)
         git.remove_protected_dir(path)
         if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
         elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
-    db.update_build(build_id, 's', repo_size)
+    db.update_build(build_id, 's', repo_size, archive_size)
     return redirect(f"/repo/details/{repo_id}")
 
 @app.route("/login", methods=["GET", "POST"])
@@ -227,15 +227,16 @@ def dashboard():
     repos = db.list_user_repos(g.user.user_id)
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(500, "Could not resolve user limits")
-    user_build_count = db.get_user_build_count(g.user.user_id)
-    repo_count = db.get_repo_count(g.user.user_id)
+    user_build_count = db.count_user_builds(g.user.user_id)
+    repo_count = db.count_user_repos(g.user.user_id)
     return render_template(
         "dashboard.html", 
         repos=repos, 
         builds_user_limit=limits.builds_user_limit,
         repo_limit=limits.repo_limit,
         user_build_count=user_build_count,
-        repo_count=repo_count
+        repo_count=repo_count,
+        is_admin=(g.user.role == 'a')
     )
 
 @app.route("/repo/details/<string:repo_id>")
@@ -248,7 +249,7 @@ def details(repo_id: str):
     build = db.get_latest_build(repo_id)
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(500, "Could not resolve user limits")
-    repo_build_count = db.get_repo_build_count(repo_id)
+    repo_build_count = db.count_repo_builds(repo_id)
     return render_template(
         "details.html",
         repo_id=repo_id,
@@ -270,10 +271,10 @@ def build(repo_id: str):
     if repo.user_id != g.user.user_id: abort(404)
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(500, "Could not resolve user limits")
-    user_builds = db.get_user_build_count(g.user.user_id)
+    user_builds = db.count_user_builds(g.user.user_id)
     if user_builds >= limits.builds_user_limit:  
         abort(400, f"Reached build limit per user ({user_builds}/{limits.builds_user_limit})")
-    repo_builds = db.get_repo_build_count(repo_id)
+    repo_builds = db.count_repo_builds(repo_id)
     if repo_builds >= limits.builds_repo_limit:   
         abort(400, f"Reached build limit per repo ({repo_builds}/{limits.builds_repo_limit})")
     if db.has_repo_pending_build(repo_id):  
@@ -283,14 +284,15 @@ def build(repo_id: str):
     ssh_key_plain = git.decrypt_ssh_key(repo.ssh_key) if repo.ssh_key else None
     build_id = db.add_build(g.user.user_id, repo_id)
     repo_size = None
+    archive_size = None
     try:
-        repo_size = git.clone_repo(repo.url, path, ssh_key_plain)
+        repo_size, archive_size = git.clone_repo(repo.url, path, ssh_key_plain)
     except git.RepoError as re:
         db.update_build(build_id, re.type)   
         git.remove_protected_dir(path)
         if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
         elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
-    db.update_build(build_id, 's', repo_size)
+    db.update_build(build_id, 's', repo_size, archive_size)
     return redirect(f"/repo/details/{repo_id}")
 
 @app.route("/repo/remove/<string:repo_id>")
@@ -336,6 +338,33 @@ def user_remove():
         git.remove_protected_dir(REPO_PATH / repo.id)
     db.delete_user(g.user.user_id)
     return redirect("/login")
+
+@app.route("/admin")
+@auth.login_required()
+@auth.role_required('a')
+def admin():
+    repo_count = db.count_repos()
+    user_count = db.count_users()
+    build_24h_count = db.count_last24h_builds()
+    build_7d_count = db.count_last7d_builds()
+    sizes = db.sum_build_sizes()
+    extracted_size = git.get_extracted_size()
+    latest_activity = db.list_last10_builds()
+    return render_template(
+        "admin.html",
+        repo_count=repo_count,
+        user_count=user_count,
+        build_24h_count=build_24h_count,
+        build_7d_count=build_7d_count,
+        build_sum_size=utils.size_to_str(sizes.size),
+        build_sum_archive_size=utils.size_to_str(sizes.archive_size),
+        extracted_size=utils.size_to_str(extracted_size),
+        total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
+        latest_activity=[
+            (acc.repo_id, acc.user_login, utils.code_to_status(acc.status), utils.timestamp_to_str(acc.timestamp)) 
+            for acc in latest_activity
+        ]
+    )
 
 @app.teardown_appcontext
 def db_close(error=None):

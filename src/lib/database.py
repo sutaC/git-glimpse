@@ -1,4 +1,4 @@
-from lib.database_rows import Build, Limits, Repo, RepoClone, RepoRow, RowType, Session, User, UserAuth
+from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RowType, Session, Sizes, User, UserAuth
 from secrets import token_urlsafe
 from typing import Literal
 from pathlib import Path
@@ -66,7 +66,8 @@ class Database:
                 `repo_id` TEXT REFERENCES `repos`(`id`) ON DELETE SET NULL,
                 `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v')), 
                 `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
-                `size` INTEGER CHECK (`size` >= 0)
+                `size` INTEGER CHECK (`size` >= 0),
+                `archive_size` INTEGER CHECK (`archive_size` >= 0)
             );
             CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
             CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
@@ -152,12 +153,15 @@ class Database:
     def is_repo_url_for_user(self, url: str, user_id: int) -> bool:
         return self._fetch_exists('SELECT 1 FROM `repos` WHERE `url` = ? AND `user_id` = ?;', (url, user_id))
 
-    def get_repo_count(self, user_id: int) -> int:
+    def count_user_repos(self, user_id: int) -> int:
         return self._fetch_count('SELECT COUNT(*) FROM `repos` WHERE `user_id` = ?;', (user_id,))
 
     def delete_repo(self, repo_id: str) -> None:
         self._cursor().execute('DELETE FROM `repos` WHERE `id` = ?;', (repo_id,))
         self._commit()
+
+    def count_repos(self) -> int:
+        return self._fetch_count('SELECT COUNT(*) FROM `repos`;')
 
     # --- users
     def add_user(self, login: str, email: str, password: str, role: Literal['u','a'] = 'u') -> int:
@@ -200,6 +204,9 @@ class Database:
             WHERE `users`.`id` = ?;
         ''', (user_id,), Limits)
 
+    def count_users(self) -> int:
+        return self._fetch_count('SELECT COUNT(*) FROM `users`;')
+
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:
         id = token_urlsafe(32)
@@ -231,8 +238,10 @@ class Database:
         assert isinstance(build_id, int)
         return build_id
     
-    def update_build(self, build_id: int, status: str, size: int | None = None) -> None:
-        self._cursor().execute('UPDATE `builds` SET `status` = ?, `size` = ? WHERE `id` = ?;', [status, size, build_id])
+    def update_build(self, build_id: int, status: str, size: int | None = None, archive_size:  int | None = None) -> None:
+        self._cursor().execute('''
+            UPDATE `builds` SET `status` = ?, `size` = ?, `archive_size` = ? WHERE `id` = ?;
+        ''', [status, size, archive_size, build_id])
         self._commit()
 
     def has_repo_pending_build(self, repo_id: str) -> bool:
@@ -244,17 +253,44 @@ class Database:
             (repo_id,), Build
         )
     
-    def get_user_build_count(self, user_id: int) -> int:
+    def count_user_builds(self, user_id: int) -> int:
         return self._fetch_count('''
             SELECT COUNT(*) FROM `builds` 
             WHERE `user_id` = ? AND `builds`.`timestamp` > unixepoch() - 7*24*3600;
         ''', (user_id,)
         )
     
-    def get_repo_build_count(self, repo_id: str) -> int:
+    def count_repo_builds(self, repo_id: str) -> int:
         return self._fetch_count('''
-            SELECT COUNT(*) FROM `builds` 
-            WHERE `repo_id` = ? AND `builds`.`timestamp` > unixepoch() - 7*24*3600;
+            SELECT COUNT(*) FROM `builds` WHERE `repo_id` = ? AND `timestamp` > unixepoch() - 7*24*3600;
         ''', (repo_id,)
         )
+    
+    def count_last24h_builds(self) -> int:
+        return self._fetch_count('SELECT COUNT(*) FROM `builds` WHERE `timestamp` > unixepoch() - 24*3600')
+    
+    def count_last7d_builds(self) -> int:
+        return self._fetch_count('SELECT COUNT(*) FROM `builds` WHERE `timestamp` > unixepoch() - 7*24*3600')
 
+    def sum_build_sizes(self) -> Sizes:
+        r = self._fetch_one('''
+            SELECT SUM(COALESCE(`b`.`size`, 0)), SUM(COALESCE(`b`.`archive_size`, 0))
+            FROM `builds` AS `b`
+            JOIN `repos` ON `b`.`repo_id` = `repos`.`id`
+            JOIN (
+                SELECT `b2`.`repo_id`, MAX(`b2`.`timestamp`) AS `timestamp`
+                FROM `builds` AS `b2`
+                GROUP BY `b2`.`repo_id`
+            ) AS `latest_builds` 
+            ON `b`.`repo_id` = `latest_builds`.`repo_id` AND `b`.`timestamp` = `latest_builds`.`timestamp`;
+        ''', row_type=Sizes)
+        assert r is not None
+        return r
+    
+    def list_last10_builds(self) -> list[BuildActivity]:
+        return self._fetch_all('''
+            SELECT `b`.`repo_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`
+            FROM `builds` AS `b`
+            JOIN `users` AS `u` ON `b`.`user_id` = `u`.`id`
+            LIMIT 10;
+        ''', row_type=BuildActivity)

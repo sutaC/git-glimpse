@@ -23,6 +23,7 @@ def cleanup_repos():
     cursor = c.cursor()
     count = 0
     for item in REPO_PATH.iterdir():
+        if not item.is_dir(): continue
         cursor.execute("SELECT `user_id` FROM `repos` WHERE `id` = ?;", (item.name,))
         repo = cursor.fetchone()
         if not repo: # Repo id not in db
@@ -80,6 +81,7 @@ def cleanup_extracted():
     print("# Starting extracted cleanup")
     count = 0
     for item in REPO_PATH.iterdir():
+        if not item.is_dir(): continue
         ext_path = item / "extracted"
         if not ext_path.exists(): continue 
         with RepoLock(ext_path):

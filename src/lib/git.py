@@ -8,6 +8,7 @@ import tarfile
 import zipfile
 import shutil
 import time
+import json
 import os
 
 FERNET = Fernet(os.environ["FERNET_KEY"]) # REQUIRED
@@ -15,6 +16,7 @@ FERNET = Fernet(os.environ["FERNET_KEY"]) # REQUIRED
 PROJECT_ROOT_PATH = Path(__file__).parent.parent.parent 
 REPO_PATH =  PROJECT_ROOT_PATH / "repo"
 REPO_PATH.mkdir(exist_ok=True)
+SIZE_CACHE_FILE = REPO_PATH / ".size.json"
 
 MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -99,7 +101,7 @@ def check_repo_limits(path: Path):
             raise RepoError('v', 400, "Block devices are not allowed")
     return total_size
    
-def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> int:
+def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[int, int]:
     env = None
     key_path = None
     try:
@@ -146,7 +148,8 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> int:
             compress_repo(tmpdir, archive_path)
             archive_path.chmod(0o400)
             # returns repo size
-            return repo_size
+            archive_size = archive_path.stat().st_size
+            return repo_size, archive_size
     except RepoError:
         raise # pass RepoErorrs
     except Exception as e:
@@ -230,6 +233,36 @@ def zip_repo(ext_path: Path, zip_path: Path) -> None:
             arcname = path.relative_to(ext_path)
             if path.is_file():
                 zf.write(path, arcname)
+
+def get_extracted_size() -> int:
+    # Check cache
+    if SIZE_CACHE_FILE.exists():    
+        with open(SIZE_CACHE_FILE, "r") as cf:
+            try:
+                cached = json.load(cf)
+                timestamp: float = cached.get("timestamp", 0)
+                extracted_size: int = cached.get("extracted_size", 0)
+                # Younger than 15min
+                if timestamp > time.time() - 15*60:
+                    return extracted_size
+            except:
+                pass
+    # Compute total
+    total = 0
+    for item in REPO_PATH.iterdir():
+        if not item.is_dir(): continue
+        ext_path = item / "extracted"
+        if not ext_path.exists(): continue
+        for child in ext_path.rglob("*"):
+            if child.is_file():
+                total += child.stat().st_size
+    # Save to cache
+    try:
+        with open(SIZE_CACHE_FILE, "w") as cf:
+            json.dump({"timestamp": time.time(), "extracted_size": total}, cf)
+    except:
+        pass
+    return total
 
 def encrypt_ssh_key(ssh_key: str) -> str:
     return FERNET.encrypt(ssh_key.encode()).decode()

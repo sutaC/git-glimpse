@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Admin | Git Glimpse</title>
+
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/global.css')}}"
+        />
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/admin.css')}}"
+        />
+    </head>
+    <body>
+        <header>
+            <h1>Admin</h1>
+            <a href="/dashboard">Dashboard</a>
+        </header>
+        <main>
+            <section>
+                <div class="section_header">
+                    <h2>Summary</h2>
+                </div>
+                <p>Total users: {{user_count}}</p>
+                <p>Total repos: {{repo_count}}</p>
+                <p>Total builds in last 24h: {{build_24h_count}}</p>
+                <p>Total builds in last 7d: {{build_7d_count}}</p>
+                <p>Total build sizes: {{build_sum_size}}</p>
+                <p>Total build archive sizes: {{build_sum_archive_size}}</p>
+                <p>Total extracted size: {{extracted_size}}</p>
+                <p>Total computed size: {{total_computed_size}}</p>
+            </section>
+            <section class="section_activity">
+                <div class="section_header">
+                    <h2>Latest activity</h2>
+                </div>
+                <table class="activity">
+                    <tr>
+                        <th>Repo</th>
+                        <th>User</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                    {% for repo_id, user_login, status, timestamp in
+                    latest_activity %}
+                    <tr>
+                        <td>
+                            <a
+                                href="/repo/{{repo_id|urlencode}}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >{{repo_id}}</a
+                            >
+                        </td>
+                        <td>{{user_login}}</td>
+                        <td class="status_{{status}}">{{status}}</td>
+                        <td>{{timestamp}}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </section>
+        </main>
+        <footer>
+            Made by:
+            <a
+                href="http://github.com/sutaC"
+                target="_blank"
+                rel="noopener noreferrer"
+                >sutaC</a
+            >
+        </footer>
+    </body>
+</html>
