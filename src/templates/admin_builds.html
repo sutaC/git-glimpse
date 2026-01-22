@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Builds | Admin | Git Glimpse</title>
+
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/global.css')}}"
+        />
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/admin.css')}}"
+        />
+
+        {% from "components/table_builds.html" import table_builds %}
+    </head>
+    <body>
+        <header>
+            <h1>Admin - Builds</h1>
+            <nav>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin">Admin</a>
+            </nav>
+        </header>
+        <main>
+            <section>
+                <div class="section_header">
+                    <h2>Filters</h2>
+                </div>
+                <div class="section_content">
+                    <form action="/admin/builds" method="get" class="filters">
+                        <label for="status">Status: </label>
+                        <select name="status" id="status">
+                            <option value="" {{'selected' if status=="" else ''}}>any</option>
+                            <option value="s" {{'selected' if status=="s" else ''}}>success</option>
+                            <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
+                            <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
+                            <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
+                        </select>
+                        <label for="repo">Repo id: </label>
+                        <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
+                        <label for="user">User login: </label>
+                        <input type="text" name="user" id="user" value="{{user}}">
+                        <hr>
+                        <!-- TODO: fix reset -->
+                        <button type="reset" >Reset</button>
+                        <button type="submit">Apply</button>
+                    </form>
+                </div>
+            </section>
+
+            <section>
+                <div class="section_header">
+                    <h2>Builds</h2>
+
+                    <div class="pager">
+                        <form action="/admin/builds">
+                            <input type="hidden" name="status" value="{{status}}">
+                            <input type="hidden" name="user" value="{{user}}">
+                            <input type="hidden" name="repo" value="{{repo}}">
+                            <input
+                                type="hidden"
+                                name="page"
+                                value="{{page-1}}"
+                            /><button
+                                type="submit"
+                                {{'disabled' if page <= 0 else ''}}
+                            >
+                                Previous
+                            </button>
+                        </form>
+                        <form action="/admin/builds" method="get">
+                            <input type="hidden" name="status" value="{{status}}">
+                            <input type="hidden" name="user" value="{{user}}">
+                            <input type="hidden" name="repo" value="{{repo}}">
+                            <input
+                                type="hidden"
+                                name="page"
+                                value="{{page+1}}"
+                            /><button
+                                type="submit"
+                                {{'disabled' if is_last else ''}}
+                            >
+                                Next
+                            </button>
+                        </form>
+                        <span>Page: {{page}}</span>
+                    </div>
+                </div>
+                <div class="section_content">{{ table_builds(builds) }}</div>
+            </section>
+        </main>
+        <footer>
+            Made by:
+            <a
+                href="http://github.com/sutaC"
+                target="_blank"
+                rel="noopener noreferrer"
+                >sutaC</a
+            >
+        </footer>
+    </body>
+</html>

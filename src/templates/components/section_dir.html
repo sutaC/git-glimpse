@@ -1,5 +1,5 @@
 {% macro section_dir(path, repo_id, parent_chain, repo_name, path_str) %}
-<section class="dir">
+<section>
     <div class="section_header">
         <h2>
             {% if path_str %} {{path.name}} {% else %} {{repo_name}} {% endif %}
@@ -8,18 +8,21 @@
         <a href="/raw/{{repo_id|urlencode}}/">Download</a>
         {% endif %}
     </div>
-    <ul class="dir_contents">
-        {% if path_str %}
-        <li class="dir_contents_child"><a href="..">..</a></li>
-        {% endif %} {% for child in path.iterdir() %} {% if child.name != ".git"
-        %}
-        <li>
-            <a
-                href="/repo/{{repo_id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != 'extracted' else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
-                >{{"dir: " if child.is_dir() else "file: "}}{{child.name}}</a
-            >
-        </li>
-        {% endif %} {% endfor %}
-    </ul>
+    <div class="section_content">
+        <ul class="dir_contents">
+            {% if path_str %}
+            <li class="dir_contents_child"><a href="..">..</a></li>
+            {% endif %} {% for child in path.iterdir() %} {% if child.name !=
+            ".git" %}
+            <li>
+                <a
+                    href="/repo/{{repo_id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != 'extracted' else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
+                    >{{"dir: " if child.is_dir() else "file:
+                    "}}{{child.name}}</a
+                >
+            </li>
+            {% endif %} {% endfor %}
+        </ul>
+    </div>
 </section>
 {% endmacro %}

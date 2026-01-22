@@ -13,11 +13,16 @@
     <body>
         <header>
             <h1>
-                Details -
-                <a href="/repo/{{repo_id|urlencode}}">{{repo_name}}</a>
+                {{user_login}}/<a href="/repo/{{repo_id|urlencode}}"
+                    >{{repo_name}}</a
+                >{% if is_admin_view %}
+                <i>(admin view)</i>
+                {% endif %}
             </h1>
-            <a href="/">Home</a>
-            <a href="/dashboard">Dashboard</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/dashboard">Dashboard</a>
+            </nav>
         </header>
         <main>
             <p>Name: {{repo_name}}</p>
@@ -26,6 +31,7 @@
             <p>Build status: {{build_status}}</p>
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
+            {% if not is_admin_view %}
             <p>
                 <a href="/repo/build/{{repo_id|urlencode}}">Build</a> (repo
                 builds limit: {{repo_build_count}}/{{builds_repo_limit}})
@@ -33,6 +39,7 @@
             <p>
                 <a href="/repo/remove/{{repo_id|urlencode}}">Remove</a>
             </p>
+            {% endif %}
         </main>
         <footer>
             Made by:

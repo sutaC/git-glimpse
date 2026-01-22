@@ -13,13 +13,15 @@
     <body>
         <header>
             <h1>Dashboard - {{g.user.login}}</h1>
-            <a href="/">Home</a>
-            <a href="/user">User</a>
-            {% if is_admin %}
-            <a href="/admin">Admin</a>
-            {% endif %}
-            <a href="/repo/add">Add</a>
-            <a href="/logout">Logout</a>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/user">User</a>
+                {% if is_admin %}
+                <a href="/admin">Admin</a>
+                {% endif %}
+                <a href="/repo/add">Add</a>
+                <a href="/logout">Logout</a>
+            </nav>
         </header>
         <main>
             <p>Repos limit: {{repo_count}}/{{repo_limit}}</p>

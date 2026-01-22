@@ -1,12 +1,11 @@
-.activity {
-    width: calc(100% - 0.5rem);
-    margin: 0.5rem auto;
-    border: 1px solid #000;
-}
-
-.activity :is(td, th) {
+.table_builds {
+    width: 100%;
     border: 1px solid #000;
     text-align: center;
+}
+
+.table_builds :is(td, th) {
+    border: 1px solid #000;
 }
 
 .status_success {
@@ -21,6 +20,11 @@
     color: coral;
 }
 
-.status_fail {
+.status_failed {
     color: crimson;
+}
+
+.pager > * {
+    display: inline-block;
+    margin-inline: 0.25rem;
 }

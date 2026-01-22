@@ -13,11 +13,16 @@
             rel="stylesheet"
             href="{{url_for('static', filename='styles/admin.css')}}"
         />
+
+        {% from "components/table_builds.html" import table_builds %}
     </head>
     <body>
         <header>
             <h1>Admin</h1>
-            <a href="/dashboard">Dashboard</a>
+            <nav>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin/builds">Builds</a>
+            </nav>
         </header>
         <main>
             <section>
@@ -33,34 +38,13 @@
                 <p>Total extracted size: {{extracted_size}}</p>
                 <p>Total computed size: {{total_computed_size}}</p>
             </section>
-            <section class="section_activity">
+            <section>
                 <div class="section_header">
                     <h2>Latest activity</h2>
                 </div>
-                <table class="activity">
-                    <tr>
-                        <th>Repo</th>
-                        <th>User</th>
-                        <th>Status</th>
-                        <th>Timestamp</th>
-                    </tr>
-                    {% for repo_id, user_login, status, timestamp in
-                    latest_activity %}
-                    <tr>
-                        <td>
-                            <a
-                                href="/repo/{{repo_id|urlencode}}"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                >{{repo_id}}</a
-                            >
-                        </td>
-                        <td>{{user_login}}</td>
-                        <td class="status_{{status}}">{{status}}</td>
-                        <td>{{timestamp}}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
+                <div class="section_content">
+                    {{ table_builds(latest_activity) }}
+                </div>
             </section>
         </main>
         <footer>

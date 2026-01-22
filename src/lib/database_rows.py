@@ -1,6 +1,8 @@
 from typing import Literal, NamedTuple, TypeVar
 
 RowType = TypeVar("RowType")
+BuildStatus = Literal['p', 's', 'v', 'f']
+RoleType = Literal['u', 'a']
 
 # --- repos
 class Repo(NamedTuple):
@@ -41,7 +43,7 @@ class Session(NamedTuple):
 
 # --- builds
 class Build(NamedTuple):
-    status: Literal['p', 's', 'v', 'f']
+    status: BuildStatus
     timestamp: int 
     size: int | None
 
@@ -50,7 +52,9 @@ class Sizes(NamedTuple):
     archive_size: int
 
 class BuildActivity(NamedTuple):
+    id: int
     repo_id: str
     user_login: str
-    status: Literal['p', 's', 'v', 'f']
+    status: BuildStatus
     timestamp: int
+    size: int

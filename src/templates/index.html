@@ -13,12 +13,14 @@
     <body>
         <header>
             <h1>Git Glimpse</h1>
-            {% if g.user %}
-            <a href="/dashboard">Dashboard</a>
-            {% else %}
-            <a href="/login">Login</a>
-            <a href="/register">Register</a>
-            {% endif %}
+            <nav>
+                {% if g.user %}
+                <a href="/dashboard">Dashboard</a>
+                {% else %}
+                <a href="/login">Login</a>
+                <a href="/register">Register</a>
+                {% endif %}
+            </nav>
         </header>
         <main>
             <h2>Get started</h2>

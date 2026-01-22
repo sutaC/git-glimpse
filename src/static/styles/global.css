@@ -35,8 +35,9 @@ section {
     font-size: 1.25rem;
 }
 
-.file_contents {
-    margin-bottom: 0.5rem;
+.section_content {
+    width: calc(100% - 0.5rem);
+    margin: 0.5rem auto;
 }
 
 .file_contents_line {

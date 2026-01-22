@@ -245,20 +245,23 @@ def details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
     if not repo: abort(404)
-    if repo.user_id != g.user.user_id: abort(404)
+    if repo.user_id != g.user.user_id and g.user.role != 'a': abort(404)
     build = db.get_latest_build(repo_id)
-    limits = db.get_user_limits(g.user.user_id)
+    limits = db.get_user_limits(repo.user_id)
     if not limits: abort(500, "Could not resolve user limits")
     repo_build_count = db.count_repo_builds(repo_id)
+    user_login = g.user.login if repo.user_id == g.user.user_id else db.get_user_login(repo.user_id)
     return render_template(
         "details.html",
+        user_login=user_login,
         repo_id=repo_id,
         repo_name=repo.repo_name,
         url=repo.url,
+        is_admin_view=(repo.user_id != g.user.user_id and g.user.role == 'a'),
         created=utils.timestamp_to_str(repo.created),
         build_status=("?" if not build else utils.code_to_status(build.status)),
         build_timestamp=("?" if not build else utils.timestamp_to_str(build.timestamp)),
-        build_size=("?" if not build or build.size is None else utils.size_to_str(build.size)),
+        build_size=("?" if not build else utils.size_to_str(build.size)),
         builds_repo_limit=limits.builds_repo_limit,
         repo_build_count=repo_build_count
     )
@@ -349,7 +352,7 @@ def admin():
     build_7d_count = db.count_last7d_builds()
     sizes = db.sum_build_sizes()
     extracted_size = git.get_extracted_size()
-    latest_activity = db.list_last10_builds()
+    latest_activity = db.list_builds()
     return render_template(
         "admin.html",
         repo_count=repo_count,
@@ -361,9 +364,35 @@ def admin():
         extracted_size=utils.size_to_str(extracted_size),
         total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
         latest_activity=[
-            (acc.repo_id, acc.user_login, utils.code_to_status(acc.status), utils.timestamp_to_str(acc.timestamp)) 
+            (acc.id, acc.repo_id, acc.user_login, utils.code_to_status(acc.status), utils.timestamp_to_str(acc.timestamp), utils.size_to_str(acc.size)) 
             for acc in latest_activity
         ]
+    )
+
+@app.route("/admin/builds")
+@auth.login_required()
+@auth.role_required('a')
+def admin_builds():
+    page = request.args.get('page', '0')
+    if not page.isnumeric() or int(page) < 0: page = 0
+    else: page = int(page)
+    status = request.args.get('status', '')
+    if not status in ['p', 's', 'v', 'f', '']: status = ''
+    user = request.args.get('user', '')
+    repo_id = request.args.get('repo', '')
+    # ---
+    builds = db.list_builds(offset=page*10, status=status, user=user, repo_id=repo_id)
+    return render_template(
+        "admin_builds.html",
+        builds=[
+            (b.id, b.repo_id, b.user_login, utils.code_to_status(b.status), utils.timestamp_to_str(b.timestamp), utils.size_to_str(b.size))
+            for b in builds
+        ],
+        is_last=(len(builds) < 10),
+        page=page,
+        status=status,
+        user=user,
+        repo=repo_id
     )
 
 @app.teardown_appcontext

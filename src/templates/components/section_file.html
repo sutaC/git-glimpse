@@ -7,7 +7,7 @@
             >Raw</a
         >
     </div>
-    <div class="file_contents">
+    <div class="section_content">
         {% if is_text %} {% for line in
         path.read_text(errors='skip').split('\n') %}
         <span class="file_contents_line">{{line if line else ' '}}</span>

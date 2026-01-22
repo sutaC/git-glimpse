@@ -31,7 +31,8 @@ def is_text(path: Path) -> bool:
 def timestamp_to_str(timestamp: int) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-def size_to_str(size: int) -> str:
+def size_to_str(size: int | None) -> str:
+    if not isinstance(size, int): return '?'
     for unit in ("B", "KB", "MB"):
         if size < 1024:
             return f"{size} {unit}"

@@ -1,0 +1,31 @@
+{% macro table_builds(builds) %} {% if builds.__len__() %}
+<table class="table_builds">
+    <tr>
+        <th>Id</th>
+        <th>Repo</th>
+        <th>User</th>
+        <th>Status</th>
+        <th>Size</th>
+        <th>Timestamp</th>
+    </tr>
+    {% for id, repo_id, user_login, status, timestamp, size in builds %}
+    <tr>
+        <td>{{id}}</td>
+        <td>
+            <a
+                href="/repo/details/{{repo_id|urlencode}}"
+                target="_blank"
+                rel="noopener noreferrer"
+                >{{repo_id}}</a
+            >
+        </td>
+        <td>{{user_login}}</td>
+        <td class="status_{{status}}">{{status}}</td>
+        <td>{{size}}</td>
+        <td>{{timestamp}}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<small class="empty">Empty</small>
+{% endif %} {% endmacro %}

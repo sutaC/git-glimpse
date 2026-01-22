@@ -1,6 +1,5 @@
-from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RowType, Session, Sizes, User, UserAuth
+from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserAuth
 from secrets import token_urlsafe
-from typing import Literal
 from pathlib import Path
 from flask import g
 import lib.auth as auth
@@ -164,7 +163,7 @@ class Database:
         return self._fetch_count('SELECT COUNT(*) FROM `repos`;')
 
     # --- users
-    def add_user(self, login: str, email: str, password: str, role: Literal['u','a'] = 'u') -> int:
+    def add_user(self, login: str, email: str, password: str, role: RoleType = 'u') -> int:
         cursor = self._cursor()
         cursor.execute('INSERT INTO `users` (`login`, `email`, `password`, `role`) VALUES (?, ?, ?, ?);', 
             (login, email, password, role)
@@ -187,6 +186,9 @@ class Database:
     def get_user_password(self, login: str) -> UserAuth | None:
         return self._fetch_one('SELECT `id`, `password`, `role` FROM `users` WHERE `login` = ?;', (login,), UserAuth)
     
+    def get_user_login(self, user_id: int) -> str | None:
+        return self._fetch_value('SELECT `login` FROM `users` WHERE `id` = ?;', (user_id,))
+
     def get_user(self, user_id: int) -> User | None:
         return self._fetch_one('SELECT `login`, `role`, `is_verified` FROM `users` WHERE `id` = ?;', (user_id,), User)
     
@@ -287,10 +289,24 @@ class Database:
         assert r is not None
         return r
     
-    def list_last10_builds(self) -> list[BuildActivity]:
+    def list_builds(
+            self, 
+            offset:int=0, 
+            limit:int=10, 
+            status: str='', 
+            user: str='',
+            repo_id: str = ''
+        ) -> list[BuildActivity]:
+        if offset < 0: offset = 0 
+        if limit < 0: limit = 0 
+        if not status in ['p', 's', 'v', 'f', '']: status = ''
         return self._fetch_all('''
-            SELECT `b`.`repo_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`
+            SELECT `b`.`id`, `b`.`repo_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
             FROM `builds` AS `b`
             JOIN `users` AS `u` ON `b`.`user_id` = `u`.`id`
-            LIMIT 10;
-        ''', row_type=BuildActivity)
+            WHERE `b`.`repo_id` LIKE ?
+            AND `b`.`status` LIKE ?
+            AND `u`.`login` LIKE ?
+            ORDER BY `b`.`timestamp` DESC
+            LIMIT ?, ?;
+        ''', (repo_id or '%', status or '%', user or '%', offset, offset+limit), row_type=BuildActivity)
