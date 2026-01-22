@@ -6,6 +6,7 @@ from pathlib import Path
 import lib.utils as utils
 import lib.auth as auth
 import lib.git as git
+import urllib.parse
 import time
 import os
 
@@ -214,12 +215,6 @@ def logout():
     response.delete_cookie("session_id")
     return response
 
-# TODO: /verify : verification emails
-# TODO: /verify/resend : resend verification emails
-# TODO: /recover : recover password by emails
-# TODO: /reset : reset password by emails
-# TODO: /admin : admin panel (++)
-
 @app.route("/dashboard")
 @auth.login_required()
 def dashboard():
@@ -381,7 +376,7 @@ def admin_builds():
     user = request.args.get('user', '')
     repo_id = request.args.get('repo', '')
     # ---
-    builds = db.list_builds(offset=page*10, status=status, user=user, repo_id=repo_id)
+    builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id)
     return render_template(
         "admin_builds.html",
         builds=[
@@ -395,6 +390,58 @@ def admin_builds():
         repo=repo_id
     )
 
+@app.route("/admin/users")
+@auth.login_required()
+@auth.role_required('a')
+def admin_users():
+    page = request.args.get('page', '0')
+    if not page.isnumeric() or int(page) < 0: page = 0
+    else: page = int(page)
+    verified = request.args.get('verified', '')
+    if not verified in ['1', '0', '']: verified = ''
+    role = request.args.get('role', '')
+    if not role in ['a', 'u', '']: role = ''
+    user_login = request.args.get('login', '')
+    email = request.args.get('email', '')
+    # ---
+    users = db.list_users(offset=(page*10), login=user_login, email=email, is_verified=verified, role=role)
+    return render_template(
+        "admin_users.html",
+        users=[
+            (u.id, u.login, u.email, u.is_verified, utils.code_to_role(u.role), utils.timestamp_to_str(u.created))
+            for u in users
+        ],
+        is_last=(len(users) < 10),
+        page=page,
+        login=user_login,
+        email=email,
+        verified=verified,
+        role=role
+    )
+
+@app.route("/admin/users/verify", methods=["POST"])
+@auth.role_required('a')
+def admin_users_verify():
+    user_id = request.form.get("user_id", "")
+    if not user_id  or not user_id.isnumeric(): abort(400, "Missing or invalid `user_id`")
+    user_id = int(user_id)
+    verified = request.form.get("verified", "")
+    if not verified or verified not in ["true", "false"]: abort(400, "Missing or invalid `verified`")
+    verified = verified == "true"
+    user_login = db.get_user_login(user_id)
+    if not user_login: abort(404, "User not found")
+    if user_login == "root": abort(400, "Cannot modify root user")
+    db.set_user_verified(user_id, verified)
+    return redirect(f'/admin/users?user={urllib.parse.quote(user_login)}')
+
 @app.teardown_appcontext
 def db_close(error=None):
     db._close()
+
+# TODO: /verify : verification emails
+# TODO: /verify/resend : resend verification emails
+# TODO: /recover : recover password by emails
+# TODO: /reset : reset password by emails
+# TODO: /admin/repos : admin panel - repos display
+# TODO: /repo/remove/<id> : repo removal for admin users
+# TODO: /user/remove :  user removal for admin users

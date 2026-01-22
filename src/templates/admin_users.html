@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Builds | Admin | Git Glimpse</title>
+        <title>Users | Admin | Git Glimpse</title>
 
         <link
             rel="stylesheet"
@@ -14,15 +14,15 @@
             href="{{url_for('static', filename='styles/admin.css')}}"
         />
 
-        {% from "components/table_builds.html" import table_builds %}
+        {% from "components/table_users.html" import table_users %}
     </head>
     <body>
         <header>
-            <h1>Admin - Builds</h1>
+            <h1>Admin - Users</h1>
             <nav>
                 <a href="/dashboard">Dashboard</a>
                 <a href="/admin">Admin</a>
-                <a href="/admin/users">Users</a>
+                <a href="/admin/builds">Builds</a>
             </nav>
         </header>
         <main>
@@ -31,19 +31,23 @@
                     <h2>Filters</h2>
                 </div>
                 <div class="section_content">
-                    <form action="/admin/builds" method="get" class="filters">
-                        <label for="status">Status: </label>
-                        <select name="status" id="status">
+                    <form action="/admin/users" method="get" class="filters">
+                        <label for="verified">Verified: </label>
+                        <select name="verified" id="verified">
                             <option value="" {{'selected' if status=="" else ''}}>any</option>
-                            <option value="s" {{'selected' if status=="s" else ''}}>success</option>
-                            <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
-                            <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
-                            <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
+                            <option value="1" {{'selected' if status=="1" else ''}}>yes</option>
+                            <option value="0" {{'selected' if status=="0" else ''}}>no</option>
                         </select>
-                        <label for="repo">Repo id: </label>
-                        <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
-                        <label for="user">User login: </label>
-                        <input type="text" name="user" id="user" value="{{user}}">
+                        <label for="role">Role: </label>
+                        <select name="role" id="role">
+                            <option value="" {{'selected' if role=="" else ''}}>any</option>
+                            <option value="u" {{'selected' if role=="u" else ''}}>user</option>
+                            <option value="a" {{'selected' if role=="a" else ''}}>admin</option>
+                        </select>
+                        <label for="login">Login: </label>
+                        <input type="text" name="login" id="login" value="{{login}}">
+                        <label for="email">Email: </label>
+                        <input type="text" name="email" id="email" value="{{email}}">
                         <hr>
                         <!-- TODO: fix reset -->
                         <button type="reset" >Reset</button>
@@ -54,13 +58,14 @@
 
             <section>
                 <div class="section_header">
-                    <h2>Builds</h2>
+                    <h2>Users</h2>
 
                     <div class="pager">
-                        <form action="/admin/builds">
-                            <input type="hidden" name="status" value="{{status}}">
-                            <input type="hidden" name="user" value="{{user}}">
-                            <input type="hidden" name="repo" value="{{repo}}">
+                        <form action="/admin/users">
+                            <input type="hidden" name="verified" value="{{verified}}">
+                            <input type="hidden" name="login" value="{{login}}">
+                            <input type="hidden" name="email" value="{{email}}">
+                            <input type="hidden" name="role" value="{{role}}">
                             <input
                                 type="hidden"
                                 name="page"
@@ -72,10 +77,11 @@
                                 Previous
                             </button>
                         </form>
-                        <form action="/admin/builds" method="get">
-                            <input type="hidden" name="status" value="{{status}}">
-                            <input type="hidden" name="user" value="{{user}}">
-                            <input type="hidden" name="repo" value="{{repo}}">
+                        <form action="/admin/users" method="get">
+                            <input type="hidden" name="verified" value="{{verified}}">
+                            <input type="hidden" name="login" value="{{login}}">
+                            <input type="hidden" name="email" value="{{email}}">
+                            <input type="hidden" name="role" value="{{role}}">
                             <input
                                 type="hidden"
                                 name="page"
@@ -90,7 +96,7 @@
                         <span>Page: {{page}}</span>
                     </div>
                 </div>
-                <div class="section_content">{{ table_builds(builds) }}</div>
+                <div class="section_content">{{ table_users(users) }}</div>
             </section>
         </main>
         <footer>

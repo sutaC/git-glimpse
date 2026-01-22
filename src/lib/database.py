@@ -1,4 +1,4 @@
-from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserAuth
+from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
 from secrets import token_urlsafe
 from pathlib import Path
 from flask import g
@@ -35,7 +35,8 @@ class Database:
                 `email` TEXT NOT NULL UNIQUE,
                 `password` TEXT NOT NULL,
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
-                `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+                `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+                `created` INTEGER NOT NULL DEFAULT (unixepoch())
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
             -- sessions
@@ -173,8 +174,11 @@ class Database:
         assert isinstance(user_id, int)
         return user_id
 
-    def set_user_verified(self, user_id: int) -> None:
-        self._cursor().execute('UPDATE `users` SET `is_verified` = 1 WHERE `id` = ?;', (user_id,))
+    def set_user_verified(self, user_id: int, verified: bool = True) -> None:
+        self._cursor().execute(
+            'UPDATE `users` SET `is_verified` = ? WHERE `id` = ?;',
+            ((1 if verified else 0), user_id)
+        )
         self._commit()
 
     def is_user_login(self, login: str) -> bool:
@@ -208,6 +212,28 @@ class Database:
 
     def count_users(self) -> int:
         return self._fetch_count('SELECT COUNT(*) FROM `users`;')
+
+    def list_users(
+        self, 
+        offset: int = 0, 
+        limit: int = 10,
+        login: str = '',
+        email: str = '',
+        role: str = '',
+        is_verified: str = ''
+    ) -> list[UserActivity]:
+        if role not in ['a', 'u', '']: role = '' 
+        if is_verified not in ['1', '0', '']: is_verified = '' 
+        return self._fetch_all('''
+            SELECT  `id`, `login`, `email`, `is_verified`, `role`, `created`
+            FROM `users`
+            WHERE `login` LIKE ?
+            AND `email` LIKE ?
+            AND `is_verified` LIKE ?
+            AND `role` LIKE ?
+            ORDER BY `created` DESC
+            LIMIT ?, ?;
+        ''', (login or '%', email or '%', is_verified or '%', role or '%', offset, limit), row_type=UserActivity)
 
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:
@@ -297,8 +323,8 @@ class Database:
             user: str='',
             repo_id: str = ''
         ) -> list[BuildActivity]:
-        if offset < 0: offset = 0 
-        if limit < 0: limit = 0 
+        if offset < 0: offset = 0
+        if limit < 0: limit = 0
         if not status in ['p', 's', 'v', 'f', '']: status = ''
         return self._fetch_all('''
             SELECT `b`.`id`, `b`.`repo_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
@@ -309,4 +335,4 @@ class Database:
             AND `u`.`login` LIKE ?
             ORDER BY `b`.`timestamp` DESC
             LIMIT ?, ?;
-        ''', (repo_id or '%', status or '%', user or '%', offset, offset+limit), row_type=BuildActivity)
+        ''', (repo_id or '%', status or '%', user or '%', offset, limit), row_type=BuildActivity)

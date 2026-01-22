@@ -31,6 +31,14 @@ class UserAuth(NamedTuple):
     password: str
     role: str
 
+class UserActivity(NamedTuple):
+    id: int
+    login: str
+    email: str 
+    is_verified: bool 
+    role: RoleType
+    created: int
+
 class Limits(NamedTuple):
     builds_repo_limit: int
     builds_user_limit: int

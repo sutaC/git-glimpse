@@ -1,0 +1,40 @@
+{% macro table_users(users) %} {% if users.__len__() %}
+<table class="table_display">
+    <tr>
+        <th>Id</th>
+        <th>Login</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Verified</th>
+        <th>Action(V)</th>
+        <th>Created</th>
+    </tr>
+    {% for id, login, email, is_verified, role, created in users %}
+    <tr>
+        <td>{{id}}</td>
+        <td>{{login}}</td>
+        <td>{{email or "-"}}</td>
+        <td>{{role}}</td>
+        <td>{{'yes' if is_verified else 'no'}}</td>
+        <td>
+            {% if login != 'root' %}
+            <form action="/admin/users/verify" method="post" class="verify">
+                <input type="hidden" name="user_id" value="{{id}}" />
+                <input
+                    type="hidden"
+                    name="verified"
+                    value="{{'false' if is_verified else 'true'}}"
+                />
+                <button type="submit">
+                    {{'Unverify' if is_verified else 'Verify'}}
+                </button>
+            </form>
+            {% else %} - {% endif %}
+        </td>
+        <td>{{created}}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<small class="empty">Empty</small>
+{% endif %} {% endmacro %}

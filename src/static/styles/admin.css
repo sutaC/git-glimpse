@@ -1,10 +1,10 @@
-.table_builds {
+.table_display {
     width: 100%;
     border: 1px solid #000;
     text-align: center;
 }
 
-.table_builds :is(td, th) {
+.table_display :is(td, th) {
     border: 1px solid #000;
 }
 
