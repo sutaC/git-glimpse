@@ -1,3 +1,4 @@
+from lib.database_rows import BuildActivity, UserActivity
 from datetime import datetime, timezone
 from pathlib import Path
 import re
@@ -52,3 +53,15 @@ def code_to_role(code: str) -> str:
         case 'a': return "admin"
         case 'u': return "user"
         case _: return "?"
+
+def builds_activity_to_readable(builds: list[BuildActivity]):
+    return [
+        (b.id, b.repo_id, b.user_id, b.user_login, code_to_status(b.status), timestamp_to_str(b.timestamp), size_to_str(b.size))
+        for b in builds
+    ]
+
+def users_activity_to_readable(users: list[UserActivity]):
+    return [
+        (u.id, u.login, u.email, u.is_verified, code_to_role(u.role), timestamp_to_str(u.created))
+        for u in users
+    ]

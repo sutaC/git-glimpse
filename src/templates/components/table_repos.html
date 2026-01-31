@@ -1,0 +1,31 @@
+{% macro table_repos(repos) %} {% if repos.__len__() %}
+<table class="table_display">
+    <tr>
+        <th>Id</th>
+        <th>Owner</th>
+        <th>Url</th>
+        <th>Has Key</th>
+        <th>Created</th>
+        <th>LB Status</th>
+        <th>LB Size</th>
+        <th>LB Timestamp</th>
+        <th>Builds</th>
+    </tr>
+    {% for id, user_login, user_id, url, has_key, created, status, size,
+    timestamp in repos %}
+    <tr>
+        <td><a href="/admin/repos/{{repo_id|urlencode}}">{{id}}</a></td>
+        <td><a href="/admin/users/{{user_id|urlencode}}">{{user_login}}</a></td>
+        <td>{{url}}</td>
+        <td>{{'yes' if has_key else 'no'}}</td>
+        <td>{{created}}</td>
+        <td class="status_{{status}}">{{status}}</td>
+        <td>{{size}}</td>
+        <td>{{timestamp}}</td>
+        <td><a href="/admin/builds?repo={{id|urlencode}}">Builds</a></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<small class="empty">Empty</small>
+{% endif %} {% endmacro %}

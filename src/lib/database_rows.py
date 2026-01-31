@@ -61,6 +61,7 @@ class Sizes(NamedTuple):
 class BuildActivity(NamedTuple):
     id: int
     repo_id: str
+    user_id: int
     user_login: str
     status: BuildStatus
     timestamp: int

@@ -180,6 +180,14 @@ class Database:
         )
         self._commit()
 
+    def set_user_role(self, user_id: int, role: RoleType = 'u') -> None:
+        assert role in ['a', 'u']
+        self._cursor().execute(
+            'UPDATE `users` SET `role` = ? WHERE `id` = ?;',
+            (role, user_id)
+        )
+        self._commit()
+
     def is_user_login(self, login: str) -> bool:
         return self._fetch_exists('SELECT 1 FROM `users` WHERE `login` = ?;', (login,))
     
@@ -326,7 +334,7 @@ class Database:
         if limit < 0: limit = 0
         if not status in ['p', 's', 'v', 'f', '']: status = ''
         return self._fetch_all('''
-            SELECT `b`.`id`, `b`.`repo_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
+            SELECT `b`.`id`, `b`.`repo_id`, `u`.`id` AS `user_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
             FROM `builds` AS `b`
             JOIN `users` AS `u` ON `b`.`user_id` = `u`.`id`
             WHERE `b`.`repo_id` LIKE ?
@@ -335,3 +343,30 @@ class Database:
             ORDER BY `b`.`timestamp` DESC
             LIMIT ?, ?;
         ''', (repo_id or '%', status or '%', user or '%', offset, limit), row_type=BuildActivity)
+    
+    def expire_user_builds(self, user_id: int) -> None:
+        # Removes non-latest builds
+        self._cursor().execute('''
+            DELETE FROM `builds`
+            WHERE `id` in (
+                SELECT `b`.`id` 
+                FROM `builds` AS `b`
+                LEFT JOIN `repos` AS `r` ON `r`.`id` = `b`.`repo_id`
+                WHERE `b`.`user_id` = ? 
+                AND (
+                    -- orphaned build
+                    `r`.`id` is NULL
+                    OR
+                    -- not latest build for repo
+                    `b`.`id` != (
+                        SELECT `id` FROM `builds` AS `b2`
+                        WHERE `b2`.`repo_id` = `b`.`repo_id`
+                        ORDER BY `b2`.`timestamp` DESC, `b2`.`id`
+                        LIMIT 1
+                    )
+                )
+            );
+        ''', [user_id])
+        # Sets all remaining builds as expired
+        self._cursor().execute('UPDATE `builds` SET `timestamp` = 0 WHERE `user_id` = ?;', [user_id])
+        self._commit()

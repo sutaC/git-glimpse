@@ -20,11 +20,11 @@
         <main>
             <p>Role: {{role}}</p>
             <p>
-                Email: {{email or "?"}} ({{"verified" if is_verified else "not
-                verified"}})
+                Email: {{email or "-"}} {{"" if not email else "(verified)" if
+                is_verified else "(not verified)"}}
             </p>
+            <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
             <p>Build quota: {{build_count}}/{{build_limit}}</p>
-            <p>Repo limit: {{repo_count}}/{{repo_limit}}</p>
             {% if user_login != "root" %}
             <p><a href="/user/remove">Remove account</a></p>
             {% endif %}

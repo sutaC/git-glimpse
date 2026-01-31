@@ -6,7 +6,6 @@ from pathlib import Path
 import lib.utils as utils
 import lib.auth as auth
 import lib.git as git
-import urllib.parse
 import time
 import os
 
@@ -228,7 +227,7 @@ def dashboard():
 
 @app.route("/repos/details/<string:repo_id>")
 @auth.login_required()
-def details(repo_id: str):
+def repos_details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
     if not repo: abort(404)
@@ -296,11 +295,11 @@ def remove(repo_id: str):
 @app.route("/user")
 @auth.login_required()
 def user():
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: abort(404, "Could not find user data")
     email = db.get_user_email(g.user.user_id)
     build_count = db.count_user_builds(g.user.user_id)
     repo_count = db.count_user_repos(g.user.user_id)
-    limits = db.get_user_limits(g.user.user_id)
-    if not limits: abort(404, "Could not find user data")
     return render_template(
         "user.html",
         user_login=g.user.login, 
@@ -342,7 +341,7 @@ def admin():
     build_7d_count = db.count_last7d_builds()
     sizes = db.sum_build_sizes()
     extracted_size = git.get_extracted_size()
-    latest_activity = db.list_builds()
+    builds = db.list_builds()
     return render_template(
         "admin.html",
         repo_count=repo_count,
@@ -353,10 +352,7 @@ def admin():
         build_sum_archive_size=utils.size_to_str(sizes.archive_size),
         extracted_size=utils.size_to_str(extracted_size),
         total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
-        latest_activity=[
-            (acc.id, acc.repo_id, acc.user_login, utils.code_to_status(acc.status), utils.timestamp_to_str(acc.timestamp), utils.size_to_str(acc.size)) 
-            for acc in latest_activity
-        ]
+        latest_activity=utils.builds_activity_to_readable(builds),
     )
 
 @app.route("/admin/builds")
@@ -374,10 +370,7 @@ def admin_builds():
     builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id)
     return render_template(
         "admin_builds.html",
-        builds=[
-            (b.id, b.repo_id, b.user_login, utils.code_to_status(b.status), utils.timestamp_to_str(b.timestamp), utils.size_to_str(b.size))
-            for b in builds
-        ],
+        builds=utils.builds_activity_to_readable(builds),
         is_last=(len(builds) < 10),
         page=page,
         status=status,
@@ -402,10 +395,7 @@ def admin_users():
     users = db.list_users(offset=(page*10), login=user_login, email=email, is_verified=verified, role=role)
     return render_template(
         "admin_users.html",
-        users=[
-            (u.id, u.login, u.email, u.is_verified, utils.code_to_role(u.role), utils.timestamp_to_str(u.created))
-            for u in users
-        ],
+        users=utils.users_activity_to_readable(users),
         is_last=(len(users) < 10),
         page=page,
         login=user_login,
@@ -414,20 +404,51 @@ def admin_users():
         role=role
     )
 
-@app.route("/admin/users/verify", methods=["POST"])
+@app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
+@auth.login_required()
 @auth.role_required('a')
-def admin_users_verify():
-    user_id = request.form.get("user_id", "")
-    if not user_id  or not user_id.isnumeric(): abort(400, "Missing or invalid `user_id`")
-    user_id = int(user_id)
-    verified = request.form.get("verified", "")
-    if not verified or verified not in ["true", "false"]: abort(400, "Missing or invalid `verified`")
-    verified = verified == "true"
-    user_login = db.get_user_login(user_id)
-    if not user_login: abort(404, "User not found")
-    if user_login == "root": abort(400, "Cannot modify root user")
-    db.set_user_verified(user_id, verified)
-    return redirect(f'/admin/users?user={urllib.parse.quote(user_login)}')
+def admin_users_id(user_id: int):
+    user = db.get_user(user_id)
+    if not user: abort(404)
+    # methods:
+    if request.method == "GET":
+        limits = db.get_user_limits(user_id)
+        if not limits: abort(404, "Could not find user data")
+        email = db.get_user_email(user_id)
+        build_count = db.count_user_builds(user_id)
+        repos = db.list_user_repos(user_id)
+        return render_template(
+            "admin_users_id.html", 
+            user_id=user_id,
+            user_login=user.login,
+            is_verified=user.is_verified,
+            role=utils.code_to_role(user.role),
+            email=email,
+            build_count=build_count,
+            repo_count=len(repos),
+            repo_limit=limits.repo_limit,
+            build_limit=limits.build_limit,
+            repos=repos
+        )
+    # method == POST
+    # Set verified
+    set_verified = request.form.get("set_verified", "")
+    if set_verified:
+        if user.login == "root": abort(400, "Cannot modify root user")
+        if set_verified not in ["true", "false"]: abort(400, "Invalid `set_verified`")
+        set_verified = set_verified == "true"
+        db.set_user_verified(user_id, set_verified)
+    # Set role
+    set_role = request.form.get("set_role", "")
+    if set_role:
+        if user.login == "root": abort(400, "Cannot modify root user")
+        if set_role not in ["a", "u"]: abort(400, "Invalid `set_role`")
+        db.set_user_role(user_id, set_role) # type: ignore -- type checked previously
+    # Expire
+    expire = request.form.get("expire", "")
+    if expire == "true":
+        db.expire_user_builds(user_id)
+    return redirect(f'/admin/users/{user_id}')
 
 @app.teardown_appcontext
 def db_close(error=None):
@@ -438,6 +459,3 @@ def db_close(error=None):
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
 # TODO: /admin/repos/<id> : admin panel - repos display
-# TODO: /admin/repos/remove/<id> : repo removal for admin users
-# TODO: /admin/users/<id> : user view for admin users
-# TODO: /admin/users/remove : user removal for admin users

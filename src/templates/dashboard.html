@@ -25,18 +25,26 @@
             </nav>
         </header>
         <main>
-            <h2>Repos</h2>
-            <ul>
-                {% for id, name in repos %}
-                <li>
-                    <a href="/repos/{{id|urlencode}}/">{{name}}</a> --
-                    <a href="/repos/details/{{id|urlencode}}">Details</a>
-                </li>
-                {% endfor %}
-            </ul>
-            {% if not repos %}
-            <small>No repos yet!</small>
-            {% endif %}
+            <section>
+                <div class="section_header">
+                    <h2>Repos</h2>
+                </div>
+                <div class="section_content">
+                    <ul>
+                        {% for id, name in repos %}
+                        <li>
+                            <a href="/repos/{{id|urlencode}}/">{{name}}</a> --
+                            <a href="/repos/details/{{id|urlencode}}"
+                                >Details</a
+                            >
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if not repos %}
+                    <small>No repos yet!</small>
+                    {% endif %}
+                </div>
+            </section>
         </main>
         <footer>
             Made by:

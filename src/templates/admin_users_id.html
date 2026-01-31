@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{user_login}} | Admin | Git Glimpse</title>
+
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/global.css')}}"
+        />
+    </head>
+    <body>
+        <header>
+            <h1>User - {{user_login}}</h1>
+            <nav>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin">Admin</a>
+                <a href="/admin/builds">Builds</a>
+                <a href="/admin/users">Users</a>
+            </nav>
+        </header>
+        <main>
+            <div><p>Role: {{role}}</p>
+                {% if user_login != "root" %}
+                <form action="/admin/users/{{user_id|urlencode}}" method="post">
+                    <input
+                        type="hidden"
+                        name="set_role"
+                        value="{{'u' if role == 'admin' else 'a'}}"
+                    />
+                    <button type="submit">
+                        {{'Demote to user' if role == 'admin' else 'Promote to admin'}}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            <div>
+                <p>Email: {{email or "-"}} {{"" if not email else "(verified)" if
+                is_verified else "(not verified)"}}</p>
+                {% if email %}
+                <form action="/admin/users/{{user_id|urlencode}}" method="post">
+                    <input
+                        type="hidden"
+                        name="set_verified"
+                        value="{{'false' if is_verified else 'true'}}"
+                    />
+                    <button type="submit">
+                        {{'Unverify' if is_verified else 'Verify'}}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
+            <div>
+                <p>Build quota: {{build_count}}/{{build_limit}}</p>
+                <form action="/admin/users/{{user_id|urlencode}}" method="post">
+                    <input type="hidden" name="expire" value="true" />
+                    <button type="submit" {{'' if build_count else 'disabled'}}>Clear build quota</button>
+                </form>
+            </div>
+            <p>
+                <a href="/admin/repos?user={{user_login|urlencode}}"
+                    >View user repos</a
+                >
+            </p>
+        </main>
+        <footer>
+            Made by:
+            <a
+                href="http://github.com/sutaC"
+                target="_blank"
+                rel="noopener noreferrer"
+                >sutaC</a
+            >
+        </footer>
+    </body>
+</html>
