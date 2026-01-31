@@ -1,22 +1,17 @@
 from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
+from globals import DATABASE_PATH, REPO_PATH
 from lib.database import Database
-from datetime import datetime
+from lib.logger import log
 from time import sleep
-from pathlib import Path
 import lib.git as git
 
-PROJECT_ROOT = Path(__file__).parent.parent
-DATABASE_PATH = PROJECT_ROOT / 'database.db'
-REPO_PATH = PROJECT_ROOT / 'repo'
-
-def log(msg: str, type: str = "INFO"):
-    print(f"{datetime.now().isoformat()} :: {type} :: {msg}")
 
 def main():
     db = Database(DATABASE_PATH, raw_mode=True)
-    log("Initializing build worker")
+    db.init_db()
+    log("Initializing build worker", "INFO")
     db.resurect_running_builds()
     while True:
         build = db.get_pending_build()
@@ -25,7 +20,7 @@ def main():
             log("No pending build found, sleeping for 5s")
             sleep(5)
             continue
-        log(f"Currently starting build {build.id}")
+        log(f"Currently starting build {build.id}", "INFO")
         repo = db.get_repo_for_clone(build.repo_id)
         if not repo:
             db.update_build(build.id, 'f')
@@ -48,10 +43,10 @@ def main():
                 log(f"Build detected violation of rules: {re.msg}", "VALIDATION")
                 continue
         db.update_build(build.id, 's', repo_size, archive_size)
-        log(f"Finished build {build.id}")
+        log(f"Finished build {build.id}", "INFO")
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        log("Closing build worker")
+        log("Closing build worker", "INFO")

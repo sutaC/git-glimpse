@@ -57,3 +57,25 @@ section {
 footer {
     text-align: center;
 }
+
+@keyframes spin {
+    form {
+        rotate: 0deg;
+    }
+    to {
+        rotate: 360deg;
+    }
+}
+
+.spinner {
+    width: 1rem;
+    aspect-ratio: 1;
+    border: 2px dotted #000;
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    animation: 1.5s ease-in-out 100ms infinite normal spin;
+    margin: 0 0.5rem;
+    visibility: hidden;
+    /* to enable manually */
+}

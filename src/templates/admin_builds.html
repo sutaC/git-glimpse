@@ -12,7 +12,7 @@
             rel="stylesheet"
             href="{{url_for('static', filename='styles/admin.css')}}"
         />
-        <script src="{{url_for('static', filename='js/filters_reset.js')}}" defer></script>
+        <script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
         {% from "components/table_builds.html" import table_builds %}
     </head>
     <body>
@@ -46,7 +46,6 @@
                         <label for="user">User login: </label>
                         <input type="text" name="user" id="user" value="{{user}}">
                         <hr>
-                        <!-- TODO: fix reset -->
                         <button type="reset" >Reset</button>
                         <button type="submit">Apply</button>
                     </form>
@@ -56,38 +55,15 @@
             <section>
                 <div class="section_header">
                     <h2>Builds</h2>
-
                     <div class="pager">
-                        <form action="/admin/builds">
-                            <input type="hidden" name="status" value="{{status}}">
-                            <input type="hidden" name="user" value="{{user}}">
-                            <input type="hidden" name="repo" value="{{repo}}">
-                            <input
-                                type="hidden"
-                                name="page"
-                                value="{{page-1}}"
-                            /><button
-                                type="submit"
-                                {{'disabled' if page <= 0 else ''}}
-                            >
-                                Previous
-                            </button>
-                        </form>
-                        <form action="/admin/builds" method="get">
-                            <input type="hidden" name="status" value="{{status}}">
-                            <input type="hidden" name="user" value="{{user}}">
-                            <input type="hidden" name="repo" value="{{repo}}">
-                            <input
-                                type="hidden"
-                                name="page"
-                                value="{{page+1}}"
-                            /><button
-                                type="submit"
-                                {{'disabled' if is_last else ''}}
-                            >
-                                Next
-                            </button>
-                        </form>
+                        <button
+                            id="pager-prev"
+                            {{'disabled' if page <= 0 else ''}}
+                        >Previous</button>
+                        <button
+                            id="pager-next"
+                            {{'disabled' if is_last else ''}}
+                            >Next</button>
                         <span>Page: {{page}}</span>
                     </div>
                 </div>

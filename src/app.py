@@ -1,5 +1,6 @@
-from tempfile import NamedTemporaryFile
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
+from globals import REPO_PATH, DATABASE_PATH
+from tempfile import NamedTemporaryFile
 from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
@@ -11,13 +12,8 @@ import os
 
 load_dotenv()
 
-PROJECT_ROOT_PATH = Path(__file__).parent.parent 
-DATABASE_PATH = PROJECT_ROOT_PATH / "database.db"
-REPO_PATH =  PROJECT_ROOT_PATH / "repo"
-SECRET_KEY = os.environ.get("SECRET_KEY")
-
 app = Flask(__name__)
-app.config["SECRET_KEY"] = SECRET_KEY
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 REPO_PATH.mkdir(exist_ok=True)
 
@@ -233,6 +229,8 @@ def repos_details(repo_id: str):
     if not repo: abort(404)
     if repo.user_id != g.user.user_id: abort(404)
     build = db.get_latest_build(repo_id)
+    if request.args.get("status") == "true":
+        return Response(utils.code_to_status(build.status) if build else "?", 200)
     limits = db.get_user_limits(repo.user_id)
     if not limits: abort(404, "Could not find user data")
     build_count = db.count_user_builds(g.user.user_id)
