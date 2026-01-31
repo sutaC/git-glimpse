@@ -19,19 +19,18 @@
                 {% if is_admin %}
                 <a href="/admin">Admin</a>
                 {% endif %}
-                <a href="/repo/add">Add</a>
+                <a href="/repos/add">Add</a>
+                {# TODO disable on max limit #}
                 <a href="/logout">Logout</a>
             </nav>
         </header>
         <main>
-            <p>Repos limit: {{repo_count}}/{{repo_limit}}</p>
-            <p>User builds limit: {{user_build_count}}/{{builds_user_limit}}</p>
             <h2>Repos</h2>
             <ul>
                 {% for id, name in repos %}
                 <li>
-                    <a href="/repo/{{id|urlencode}}/">{{name}}</a> --
-                    <a href="/repo/details/{{id|urlencode}}">Details</a>
+                    <a href="/repos/{{id|urlencode}}/">{{name}}</a> --
+                    <a href="/repos/details/{{id|urlencode}}">Details</a>
                 </li>
                 {% endfor %}
             </ul>

@@ -19,14 +19,13 @@ class Database:
             CREATE TABLE IF NOT EXISTS `roles` (
                 `id` TEXT PRIMARY KEY,
                 `name` TEXT NOT NULL UNIQUE,
-                `builds_repo_limit` INTEGER NOT NULL CHECK (`builds_repo_limit` > 0),
                 `builds_user_limit` INTEGER NOT NULL CHECK (`builds_user_limit` > 0),
                 `repo_limit` INTEGER NOT NULL CHECK (`repo_limit` > 0)
             );
-            INSERT INTO roles (`id`, `name`, `builds_repo_limit`, `builds_user_limit`, `repo_limit`)
+            INSERT INTO roles (`id`, `name`, `builds_user_limit`, `repo_limit`)
             VALUES
-                ('u', 'User', 10, 30, 3),
-                ('a', 'Admin', 100, 1000, 10)
+                ('u', 'User', 10, 3),
+                ('a', 'Admin', 100, 10)
             ON CONFLICT(`id`) DO NOTHING;                    
             -- users
             CREATE TABLE IF NOT EXISTS `users` (
@@ -205,7 +204,7 @@ class Database:
     
     def get_user_limits(self, user_id: int) -> Limits | None:
         return self._fetch_one('''
-            SELECT `roles`.`builds_repo_limit`, `roles`.`builds_user_limit`, `roles`.`repo_limit` 
+            SELECT `roles`.`builds_user_limit`, `roles`.`repo_limit` 
             FROM `users` JOIN `roles` ON `users`.`role` = `roles`.`id` 
             WHERE `users`.`id` = ?;
         ''', (user_id,), Limits)
@@ -302,7 +301,7 @@ class Database:
 
     def sum_build_sizes(self) -> Sizes:
         r = self._fetch_one('''
-            SELECT SUM(COALESCE(`b`.`size`, 0)), SUM(COALESCE(`b`.`archive_size`, 0))
+            SELECT COALESCE(SUM(`b`.`size`), 0), COALESCE(SUM(`b`.`archive_size`), 0)
             FROM `builds` AS `b`
             JOIN `repos` ON `b`.`repo_id` = `repos`.`id`
             JOIN (

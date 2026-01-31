@@ -40,8 +40,7 @@ class UserActivity(NamedTuple):
     created: int
 
 class Limits(NamedTuple):
-    builds_repo_limit: int
-    builds_user_limit: int
+    build_limit: int
     repo_limit: int    
 
 # --- sessions

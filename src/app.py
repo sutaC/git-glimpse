@@ -56,8 +56,8 @@ def clear_session_cookie(response: Response):
 def root():
     return render_template("index.html")
 
-@app.route("/repo/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
-@app.route("/repo/<string:repo_id>/<path:sub>")
+@app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
+@app.route("/repos/<string:repo_id>/<path:sub>")
 def repo(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo_name = db.get_repo_name(repo_id)
@@ -72,7 +72,7 @@ def repo(repo_id: str, sub: str):
     rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
     parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
     return render_template(
-        "repo.html", 
+        "repos.html", 
         repo_name=repo_name,
         path_str=str(subpath).lstrip("."),
         path=path,
@@ -94,7 +94,7 @@ def raw(repo_id: str, sub: str):
     try: path = git.get_repo_path(repo_path, subpath)
     except git.RepoError as e: abort(e.code, e.msg)
     if path.is_dir():
-        if sub: return redirect(f"/repo/{repo_id}/{sub}", 303)
+        if sub: return redirect(f"/repos/{repo_id}/{sub}", 303)
         # Downloading repo archive
         with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
             zip_path = Path(tmp.name)
@@ -110,11 +110,11 @@ def raw(repo_id: str, sub: str):
         return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
 
-@app.route("/repo/add", methods=["GET", "POST"])
+@app.route("/repos/add", methods=["GET", "POST"])
 @auth.login_required()
 def repo_add():
     if request.method == "GET":
-        return render_template("repo_add.html")
+        return render_template("repos_add.html")
     # POST:
     # TODO: block if not verified
     url = request.form.get("url", "").strip()
@@ -127,13 +127,13 @@ def repo_add():
     if db.is_repo_url_for_user(url, g.user.user_id):  
         abort(400, "Repo with that url already exists for that user")
     limits = db.get_user_limits(g.user.user_id)
-    if not limits: abort(500, "Could not resolve user limits")
+    if not limits: abort(404, "Could not find user data")
     user_repos = db.count_user_repos(g.user.user_id)
     if user_repos >= limits.repo_limit:
         abort(400, f"Reached repo limit per user ({user_repos}/{limits.repo_limit})")
     user_builds = db.count_user_builds(g.user.user_id)
-    if user_builds >= limits.builds_user_limit:
-        abort(400, f"Reached build limit per user ({user_builds}/{limits.builds_user_limit})")
+    if user_builds >= limits.build_limit:
+        abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
     if url.startswith("https://") and ssh_key:
         abort(400, "To use ssh-key you need to provide ssh url")
     if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
@@ -152,7 +152,7 @@ def repo_add():
         if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
         elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
     db.update_build(build_id, 's', repo_size, archive_size)
-    return redirect(f"/repo/details/{repo_id}")
+    return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -220,61 +220,48 @@ def logout():
 def dashboard():
     # TODO: verification message if not verified
     repos = db.list_user_repos(g.user.user_id)
-    limits = db.get_user_limits(g.user.user_id)
-    if not limits: abort(500, "Could not resolve user limits")
-    user_build_count = db.count_user_builds(g.user.user_id)
-    repo_count = db.count_user_repos(g.user.user_id)
     return render_template(
         "dashboard.html", 
-        repos=repos, 
-        builds_user_limit=limits.builds_user_limit,
-        repo_limit=limits.repo_limit,
-        user_build_count=user_build_count,
-        repo_count=repo_count,
+        repos=repos,
         is_admin=(g.user.role == 'a')
     )
 
-@app.route("/repo/details/<string:repo_id>")
+@app.route("/repos/details/<string:repo_id>")
 @auth.login_required()
 def details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
     if not repo: abort(404)
-    if repo.user_id != g.user.user_id and g.user.role != 'a': abort(404)
+    if repo.user_id != g.user.user_id: abort(404)
     build = db.get_latest_build(repo_id)
     limits = db.get_user_limits(repo.user_id)
-    if not limits: abort(500, "Could not resolve user limits")
-    repo_build_count = db.count_repo_builds(repo_id)
-    user_login = g.user.login if repo.user_id == g.user.user_id else db.get_user_login(repo.user_id)
+    if not limits: abort(404, "Could not find user data")
+    build_count = db.count_user_builds(g.user.user_id)
     return render_template(
-        "details.html",
-        user_login=user_login,
+        "repos_details.html",
+        user_login=g.user.login,
         repo_id=repo_id,
         repo_name=repo.repo_name,
         url=repo.url,
-        is_admin_view=(repo.user_id != g.user.user_id and g.user.role == 'a'),
         created=utils.timestamp_to_str(repo.created),
         build_status=("?" if not build else utils.code_to_status(build.status)),
         build_timestamp=("?" if not build else utils.timestamp_to_str(build.timestamp)),
         build_size=("?" if not build else utils.size_to_str(build.size)),
-        builds_repo_limit=limits.builds_repo_limit,
-        repo_build_count=repo_build_count
+        build_count=build_count,
+        build_limit=limits.build_limit
     )
 
-@app.route("/repo/build/<string:repo_id>")
+@app.route("/repos/build/<string:repo_id>")
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
     if not repo: abort(404)
     if repo.user_id != g.user.user_id: abort(404)
     limits = db.get_user_limits(g.user.user_id)
-    if not limits: abort(500, "Could not resolve user limits")
+    if not limits: abort(404, "Could not find user data")
     user_builds = db.count_user_builds(g.user.user_id)
-    if user_builds >= limits.builds_user_limit:  
-        abort(400, f"Reached build limit per user ({user_builds}/{limits.builds_user_limit})")
-    repo_builds = db.count_repo_builds(repo_id)
-    if repo_builds >= limits.builds_repo_limit:   
-        abort(400, f"Reached build limit per repo ({repo_builds}/{limits.builds_repo_limit})")
+    if user_builds >= limits.build_limit:  
+        abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
     if db.has_repo_pending_build(repo_id):  
         abort(400, "This repo already has pending build")
     # build
@@ -291,9 +278,9 @@ def build(repo_id: str):
         if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
         elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
     db.update_build(build_id, 's', repo_size, archive_size)
-    return redirect(f"/repo/details/{repo_id}")
+    return redirect(f"/repos/details/{repo_id}")
 
-@app.route("/repo/remove/<string:repo_id>")
+@app.route("/repos/remove/<string:repo_id>")
 def remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     user_id = db.get_repo_user_id(repo_id)
@@ -310,12 +297,20 @@ def remove(repo_id: str):
 @auth.login_required()
 def user():
     email = db.get_user_email(g.user.user_id)
+    build_count = db.count_user_builds(g.user.user_id)
+    repo_count = db.count_user_repos(g.user.user_id)
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: abort(404, "Could not find user data")
     return render_template(
         "user.html",
         user_login=g.user.login, 
         role=utils.code_to_role(g.user.role), 
         is_verified=g.user.is_verified,
-        email=email
+        email=email,
+        build_count=build_count,
+        repo_count=repo_count,
+        repo_limit=limits.repo_limit,
+        build_limit=limits.build_limit
     )
 
 @app.route("/user/remove", methods=["GET", "POST"])
@@ -442,6 +437,7 @@ def db_close(error=None):
 # TODO: /verify/resend : resend verification emails
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
-# TODO: /admin/repos : admin panel - repos display
-# TODO: /repo/remove/<id> : repo removal for admin users
-# TODO: /user/remove :  user removal for admin users
+# TODO: /admin/repos/<id> : admin panel - repos display
+# TODO: /admin/repos/remove/<id> : repo removal for admin users
+# TODO: /admin/users/<id> : user view for admin users
+# TODO: /admin/users/remove : user removal for admin users

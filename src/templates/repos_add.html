@@ -18,12 +18,13 @@
             </nav>
         </header>
         <main>
-            <form action="/repo/add" method="post">
+            <form action="/repos/add" method="post">
                 <label for="url">Url:</label>
                 <input type="text" name="url" id="url" />
                 <label for="ssh_key">Key:</label>
                 <textarea name="ssh_key" id="ssh_key"></textarea>
                 <button type="submit">Add</button>
+                {# TODO disable on max limit #}
             </form>
         </main>
     </body>

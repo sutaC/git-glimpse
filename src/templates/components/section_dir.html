@@ -16,7 +16,7 @@
             ".git" %}
             <li>
                 <a
-                    href="/repo/{{repo_id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != 'extracted' else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
+                    href="/repos/{{repo_id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != 'extracted' else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
                     >{{"dir: " if child.is_dir() else "file:
                     "}}{{child.name}}</a
                 >

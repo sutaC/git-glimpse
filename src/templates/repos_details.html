@@ -13,11 +13,9 @@
     <body>
         <header>
             <h1>
-                {{user_login}}/<a href="/repo/{{repo_id|urlencode}}"
+                {{user_login}}/<a href="/repos/{{repo_id|urlencode}}"
                     >{{repo_name}}</a
-                >{% if is_admin_view %}
-                <i>(admin view)</i>
-                {% endif %}
+                >
             </h1>
             <nav>
                 <a href="/">Home</a>
@@ -31,15 +29,14 @@
             <p>Build status: {{build_status}}</p>
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
-            {% if not is_admin_view %}
             <p>
-                <a href="/repo/build/{{repo_id|urlencode}}">Build</a> (repo
-                builds limit: {{repo_build_count}}/{{builds_repo_limit}})
+                {# TODO disable on max limit #}
+                <a href="/repos/build/{{repo_id|urlencode}}">Build</a> (build
+                qouta: {{build_count}}/{{build_limit}})
             </p>
             <p>
-                <a href="/repo/remove/{{repo_id|urlencode}}">Remove</a>
+                <a href="/repos/remove/{{repo_id|urlencode}}">Remove</a>
             </p>
-            {% endif %}
         </main>
         <footer>
             Made by:
