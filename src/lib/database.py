@@ -1,4 +1,4 @@
-from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
+from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
 from secrets import token_urlsafe
 from pathlib import Path
 from flask import g
@@ -136,6 +136,39 @@ class Database:
             WHERE `users`.`id` = ?;
         ''', (user_id,), RepoRow
         )
+
+    def list_repos(
+            self, 
+            offset:int=0, 
+            limit:int=10,
+            status: str='', 
+            user: str='',
+            repo: str = '',
+            url: str = '',
+            key: str = ''
+        ) -> list[RepoActivity]:
+        if offset < 0: offset = 0
+        if limit < 0: limit = 0
+        if not status in ['p', 's', 'v', 'f', '']: status = ''
+        if not key in ['1', '0', '']: key = ''
+        return self._fetch_all('''
+            SELECT  `r`.`id`, `u`.`id`, `u`.`login`, `r`.`url`, (`r`.`ssh_key` IS NOT NULL) AS `has_key`, `r`.`created`,
+                    `lb`.`status`, `lb`.`size`, `lb`.`timestamp`           
+            FROM `repos` AS `r`
+            JOIN `users` AS `u` ON `r`.`user_id` = `u`.`id`
+            LEFT JOIN (
+                SELECT `b`.`repo_id`, `b`.`status`, `b`.`size`, MAX(`b`.`timestamp`) AS `timestamp`
+                FROM `builds` AS `b`
+                GROUP BY `b`.`repo_id`
+            ) AS `lb` ON `r`.`id` = `lb`.`repo_id`
+            WHERE `r`.`id` LIKE ?
+            AND `lb`.`status` LIKE ?
+            AND `u`.`login` LIKE ?
+            AND `r`.`url` LIKE ?
+            AND `has_key` LIKE ?
+            ORDER BY `lb`.`timestamp` DESC
+            LIMIT ?, ?;
+        ''', (repo or '%', status or '%', user or '%', url or '%', key or '%', offset, limit), row_type=RepoActivity)
 
     def get_repo_name(self, repo_id: str) -> str | None:
         return self._fetch_value('SELECT `repo_name` FROM `repos` WHERE `id` = ?;', (repo_id,))

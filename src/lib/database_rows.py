@@ -20,6 +20,17 @@ class RepoClone(NamedTuple):
     url: str
     ssh_key: str
 
+class RepoActivity(NamedTuple):
+    id: str
+    user_id: int
+    user_login: str
+    url: str
+    has_key: bool
+    created: int
+    status: BuildStatus
+    size: int
+    timestamp: int
+
 # --- users
 class User(NamedTuple):
     login: str 

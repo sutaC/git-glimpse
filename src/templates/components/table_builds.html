@@ -12,7 +12,9 @@
     %}
     <tr>
         <td>{{id}}</td>
-        <td><a href="/admin/repos/{{repo_id|urlencode}}">{{repo_id}}</a></td>
+        <td>
+            <a href="/admin/repos?repo={{repo_id|urlencode}}">{{repo_id}}</a>
+        </td>
         <td><a href="/admin/users/{{user_id|urlencode}}">{{user_login}}</a></td>
         <td class="status_{{status}}">{{status}}</td>
         <td>{{size}}</td>

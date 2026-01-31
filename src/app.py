@@ -57,7 +57,7 @@ def root():
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")
-def repo(repo_id: str, sub: str):
+def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo_name = db.get_repo_name(repo_id)
     if not repo_name: abort(404)
@@ -111,7 +111,7 @@ def raw(repo_id: str, sub: str):
 
 @app.route("/repos/add", methods=["GET", "POST"])
 @auth.login_required()
-def repo_add():
+def repos_add():
     if request.method == "GET":
         return render_template("repos_add.html")
     # POST:
@@ -280,7 +280,7 @@ def build(repo_id: str):
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/repos/remove/<string:repo_id>")
-def remove(repo_id: str):
+def repos_remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     user_id = db.get_repo_user_id(repo_id)
     if not user_id or user_id != g.user.user_id: abort(404)
@@ -353,6 +353,34 @@ def admin():
         extracted_size=utils.size_to_str(extracted_size),
         total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
         latest_activity=utils.builds_activity_to_readable(builds),
+    )
+
+@app.route("/admin/repos")
+@auth.login_required()
+@auth.role_required('a')
+def admin_repos():
+    page = request.args.get('page', '0')
+    if not page.isnumeric() or int(page) < 0: page = 0
+    else: page = int(page)
+    status = request.args.get('status', '')
+    if not status in ['p', 's', 'v', 'f', '']: status = ''
+    key = request.args.get('key', '')
+    if not key in ['1', '0', '']: key = ''
+    user = request.args.get('user', '')
+    repo = request.args.get('repo', '')
+    url = request.args.get('url', '')
+    # ---
+    repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key)
+    return render_template(
+        "admin_repos.html",
+        repos=utils.repos_activity_to_readable(repos),
+        is_last=(len(repos) < 10),
+        page=page,
+        repo=repo,
+        status=status,
+        user=user,
+        url=url,
+        key=key
     )
 
 @app.route("/admin/builds")
@@ -458,4 +486,3 @@ def db_close(error=None):
 # TODO: /verify/resend : resend verification emails
 # TODO: /recover : recover password by emails
 # TODO: /reset : reset password by emails
-# TODO: /admin/repos/<id> : admin panel - repos display

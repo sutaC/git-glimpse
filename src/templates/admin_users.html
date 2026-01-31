@@ -4,7 +4,6 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Users | Admin | Git Glimpse</title>
-
         <link
             rel="stylesheet"
             href="{{url_for('static', filename='styles/global.css')}}"
@@ -13,7 +12,7 @@
             rel="stylesheet"
             href="{{url_for('static', filename='styles/admin.css')}}"
         />
-
+        <script src="{{url_for('static', filename='js/filters_reset.js')}}" defer></script>
         {% from "components/table_users.html" import table_users %}
     </head>
     <body>
@@ -22,6 +21,7 @@
             <nav>
                 <a href="/dashboard">Dashboard</a>
                 <a href="/admin">Admin</a>
+                <a href="/admin/repos">Repos</a>
                 <a href="/admin/builds">Builds</a>
             </nav>
         </header>

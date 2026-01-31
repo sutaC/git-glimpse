@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Builds | Admin | Git Glimpse</title>
+        <title>Repos | Admin | Git Glimpse</title>
         <link
             rel="stylesheet"
             href="{{url_for('static', filename='styles/global.css')}}"
@@ -13,16 +13,16 @@
             href="{{url_for('static', filename='styles/admin.css')}}"
         />
         <script src="{{url_for('static', filename='js/filters_reset.js')}}" defer></script>
-        {% from "components/table_builds.html" import table_builds %}
+        {% from "components/table_repos.html" import table_repos %}
     </head>
     <body>
         <header>
-            <h1>Admin - Builds</h1>
+            <h1>Admin - Repos</h1>
             <nav>
                 <a href="/dashboard">Dashboard</a>
                 <a href="/admin">Admin</a>
                 <a href="/admin/users">Users</a>
-                <a href="/admin/repos">Repos</a>
+                <a href="/admin/builds">Builds</a>
             </nav>
         </header>
         <main>
@@ -31,7 +31,7 @@
                     <h2>Filters</h2>
                 </div>
                 <div class="section_content">
-                    <form action="/admin/builds" method="get" class="filters">
+                    <form action="/admin/repos" method="get" class="filters">
                         <label for="status">Status: </label>
                         <select name="status" id="status">
                             <option value="" {{'selected' if status=="" else ''}}>any</option>
@@ -40,10 +40,18 @@
                             <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
                             <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
                         </select>
+                        <label for="key">Has key: </label>
+                        <select name="key" id="key">
+                            <option value="" {{'selected' if key=="" else ''}}>any</option>
+                            <option value="1" {{'selected' if key=="1" else ''}}>yes</option>
+                            <option value="0" {{'selected' if key=="0" else ''}}>no</option>
+                        </select>
                         <label for="repo">Repo id: </label>
                         <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
-                        <label for="user">User login: </label>
+                        <label for="user">Owner: </label>
                         <input type="text" name="user" id="user" value="{{user}}">
+                        <label for="url">Url: </label>
+                        <input type="text" name="url" id="url" value="{{url}}">
                         <hr>
                         <!-- TODO: fix reset -->
                         <button type="reset" >Reset</button>
@@ -57,10 +65,12 @@
                     <h2>Builds</h2>
 
                     <div class="pager">
-                        <form action="/admin/builds">
+                        <form action="/admin/repos">
                             <input type="hidden" name="status" value="{{status}}">
                             <input type="hidden" name="user" value="{{user}}">
                             <input type="hidden" name="repo" value="{{repo}}">
+                            <input type="hidden" name="url" value="{{url}}">
+                            <input type="hidden" name="key" value="{{key}}">
                             <input
                                 type="hidden"
                                 name="page"
@@ -72,10 +82,12 @@
                                 Previous
                             </button>
                         </form>
-                        <form action="/admin/builds" method="get">
+                        <form action="/admin/repos" method="get">
                             <input type="hidden" name="status" value="{{status}}">
                             <input type="hidden" name="user" value="{{user}}">
                             <input type="hidden" name="repo" value="{{repo}}">
+                            <input type="hidden" name="url" value="{{url}}">
+                            <input type="hidden" name="key" value="{{key}}">
                             <input
                                 type="hidden"
                                 name="page"
@@ -90,7 +102,7 @@
                         <span>Page: {{page}}</span>
                     </div>
                 </div>
-                <div class="section_content">{{ table_builds(builds) }}</div>
+                <div class="section_content">{{ table_repos(repos) }}</div>
             </section>
         </main>
         <footer>

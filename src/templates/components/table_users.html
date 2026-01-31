@@ -7,6 +7,7 @@
         <th>Role</th>
         <th>Verified</th>
         <th>Created</th>
+        <th>Repos</th>
     </tr>
     {% for id, login, email, is_verified, role, created in users %}
     <tr>
@@ -16,6 +17,7 @@
         <td>{{role}}</td>
         <td>{{'-' if not email else 'yes' if is_verified else 'no'}}</td>
         <td>{{created}}</td>
+        <td><a href="/admin/repos?user={{login|urlencode}}">Repos</a></td>
     </tr>
     {% endfor %}
 </table>

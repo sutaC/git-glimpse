@@ -11,10 +11,10 @@
         <th>LB Timestamp</th>
         <th>Builds</th>
     </tr>
-    {% for id, user_login, user_id, url, has_key, created, status, size,
+    {% for id, user_id, user_login, url, has_key, created, status, size,
     timestamp in repos %}
     <tr>
-        <td><a href="/admin/repos/{{repo_id|urlencode}}">{{id}}</a></td>
+        <td>{{id}}</td>
         <td><a href="/admin/users/{{user_id|urlencode}}">{{user_login}}</a></td>
         <td>{{url}}</td>
         <td>{{'yes' if has_key else 'no'}}</td>
