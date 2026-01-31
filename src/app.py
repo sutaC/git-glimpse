@@ -250,7 +250,7 @@ def repos_details(repo_id: str):
         build_limit=limits.build_limit
     )
 
-@app.route("/repos/build/<string:repo_id>")
+@app.route("/repos/build/<string:repo_id>", methods=["POST"])
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
@@ -261,22 +261,9 @@ def build(repo_id: str):
     user_builds = db.count_user_builds(g.user.user_id)
     if user_builds >= limits.build_limit:  
         abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
-    if db.has_repo_pending_build(repo_id):  
+    if db.has_repo_active_build(repo_id):  
         abort(400, "This repo already has pending build")
-    # build
-    path = REPO_PATH / repo_id
-    ssh_key_plain = git.decrypt_ssh_key(repo.ssh_key) if repo.ssh_key else None
-    build_id = db.add_build(g.user.user_id, repo_id)
-    repo_size = None
-    archive_size = None
-    try:
-        repo_size, archive_size = git.clone_repo(repo.url, path, ssh_key_plain)
-    except git.RepoError as re:
-        db.update_build(build_id, re.type)   
-        git.remove_protected_dir(path)
-        if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
-        elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
-    db.update_build(build_id, 's', repo_size, archive_size)
+    db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/repos/remove/<string:repo_id>")
@@ -363,7 +350,7 @@ def admin_repos():
     if not page.isnumeric() or int(page) < 0: page = 0
     else: page = int(page)
     status = request.args.get('status', '')
-    if not status in ['p', 's', 'v', 'f', '']: status = ''
+    if not utils.is_vaild_status(status): status = ''
     key = request.args.get('key', '')
     if not key in ['1', '0', '']: key = ''
     user = request.args.get('user', '')
@@ -391,7 +378,7 @@ def admin_builds():
     if not page.isnumeric() or int(page) < 0: page = 0
     else: page = int(page)
     status = request.args.get('status', '')
-    if not status in ['p', 's', 'v', 'f', '']: status = ''
+    if not utils.is_vaild_status(status): status = ''
     user = request.args.get('user', '')
     repo_id = request.args.get('repo', '')
     # ---

@@ -20,6 +20,9 @@ def is_valid_password(password: str) -> str | None:
     if password != password.strip():
         return "Password cannot have leading/trailling spaces"    
 
+def is_vaild_status(status: str) -> bool:
+    return status in ['p', 's', 'v', 'f', 'r']
+
 def is_text(path: Path) -> bool:
     if path.is_file():
         try:
@@ -47,6 +50,7 @@ def code_to_status(code: str):
         case 's': return "success"
         case 'f': return "failed"
         case 'v': return "violation"
+        case 'r': return "running"
         case _: return "?"
 
 def code_to_role(code: str) -> str:

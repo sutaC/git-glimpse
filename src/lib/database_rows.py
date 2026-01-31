@@ -1,7 +1,7 @@
 from typing import Literal, NamedTuple, TypeVar
 
 RowType = TypeVar("RowType")
-BuildStatus = Literal['p', 's', 'v', 'f']
+BuildStatus = Literal['p', 's', 'v', 'f', 'r']
 RoleType = Literal['u', 'a']
 
 # --- repos
@@ -77,3 +77,7 @@ class BuildActivity(NamedTuple):
     status: BuildStatus
     timestamp: int
     size: int
+
+class BuildWork(NamedTuple):
+    id: int
+    repo_id: str

@@ -27,13 +27,16 @@
             <p>URL: {{url}}</p>
             <p>Created at: {{created}}</p>
             <p>Build status: {{build_status}}</p>
+            <!-- TODO check status automaticly? -->
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
-            <p>
-                {# TODO disable on max limit #}
-                <a href="/repos/build/{{repo_id|urlencode}}">Build</a> (build
-                qouta: {{build_count}}/{{build_limit}})
-            </p>
+            <form action="/repos/build/{{repo_id|urlencode}}" method="post">
+                <button 
+                    type="submit" 
+                    {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
+                >Build</button> <i>(build
+            qouta: {{build_count}}/{{build_limit}})</i>
+            </form>
             <p>
                 <a href="/repos/remove/{{repo_id|urlencode}}">Remove</a>
             </p>

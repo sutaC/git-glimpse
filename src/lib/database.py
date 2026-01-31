@@ -1,4 +1,5 @@
-from lib.database_rows import Build, BuildActivity, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
+from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
+from lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from pathlib import Path
 from flask import g
@@ -6,10 +7,11 @@ import lib.auth as auth
 import sqlite3
 import os
 
-
 class Database:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, raw_mode:bool=False) -> None:
         self.path: Path = path
+        self.raw_mode: bool = raw_mode
+        self._raw_conn: sqlite3.Connection | None = None
 
     # --- helpers
     def init_db(self) -> None:
@@ -63,7 +65,7 @@ class Database:
                 `id` INTEGER PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `repo_id` TEXT REFERENCES `repos`(`id`) ON DELETE SET NULL,
-                `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v')), 
+                `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v', 'r')), 
                 `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
                 `size` INTEGER CHECK (`size` >= 0),
                 `archive_size` INTEGER CHECK (`archive_size` >= 0)
@@ -82,11 +84,18 @@ class Database:
         self.path.chmod(0o600)
 
     def _connect(self) -> sqlite3.Connection:
-        if "db" not in g:
-            g.db = sqlite3.connect(self.path)
-            g.db.row_factory = sqlite3.Row
-            g.db.execute("PRAGMA foreign_keys = ON")
-        return g.db
+        if self.raw_mode:
+            if self._raw_conn is None:
+                self._raw_conn = sqlite3.connect(self.path)
+                self._raw_conn.row_factory = sqlite3.Row
+                self._raw_conn.execute("PRAGMA foreign_keys = ON")
+            return self._raw_conn
+        else:
+            if "db" not in g:
+                g.db = sqlite3.connect(self.path)
+                g.db.row_factory = sqlite3.Row
+                g.db.execute("PRAGMA foreign_keys = ON")
+            return g.db
 
     def _commit(self) -> None:
         self._connect().commit()
@@ -115,8 +124,13 @@ class Database:
         return bool(row)
 
     def _close(self) -> None:
-        db = g.pop("db", None)
-        if db: db.close()
+        if self.raw_mode:
+            if self._raw_conn is not None:
+                self._raw_conn.close()
+                self._raw_conn = None
+        else:
+            db = g.pop("db", None)
+            if db: db.close()
 
     # --- repos
     def add_repo(self, user_id: int, url: str, repo_name: str, ssh_key: str | None = None) -> str:
@@ -149,7 +163,7 @@ class Database:
         ) -> list[RepoActivity]:
         if offset < 0: offset = 0
         if limit < 0: limit = 0
-        if not status in ['p', 's', 'v', 'f', '']: status = ''
+        if not is_vaild_status(status): status = ''
         if not key in ['1', '0', '']: key = ''
         return self._fetch_all('''
             SELECT  `r`.`id`, `u`.`id`, `u`.`login`, `r`.`url`, (`r`.`ssh_key` IS NOT NULL) AS `has_key`, `r`.`created`,
@@ -312,8 +326,8 @@ class Database:
         ''', [status, size, archive_size, build_id])
         self._commit()
 
-    def has_repo_pending_build(self, repo_id: str) -> bool:
-        return self._fetch_exists("SELECT 1 FROM `builds` WHERE `status` = 'p' AND `repo_id` = ? LIMIT 1;", (repo_id,))
+    def has_repo_active_build(self, repo_id: str) -> bool:
+        return self._fetch_exists("SELECT 1 FROM `builds` WHERE `status` IN ('p', 'r') AND `repo_id` = ? LIMIT 1;", (repo_id,))
 
     def get_latest_build(self, repo_id: str) -> Build | None:
         return self._fetch_one(
@@ -365,7 +379,7 @@ class Database:
         ) -> list[BuildActivity]:
         if offset < 0: offset = 0
         if limit < 0: limit = 0
-        if not status in ['p', 's', 'v', 'f', '']: status = ''
+        if not is_vaild_status(status): status = ''
         return self._fetch_all('''
             SELECT `b`.`id`, `b`.`repo_id`, `u`.`id` AS `user_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
             FROM `builds` AS `b`
@@ -403,3 +417,12 @@ class Database:
         # Sets all remaining builds as expired
         self._cursor().execute('UPDATE `builds` SET `timestamp` = 0 WHERE `user_id` = ?;', [user_id])
         self._commit()
+
+    def get_pending_build(self) -> BuildWork | None:
+        return self._fetch_one(
+            "SELECT `id`, `repo_id` FROM `builds` WHERE `status` = 'p' ORDER BY `timestamp` ASC, `id` ASC LIMIT 1;",
+            row_type=BuildWork
+        )
+    
+    def resurect_running_builds(self) -> None:
+        self._cursor().execute("UPDATE `builds` SET `status` = 'p' WHERE `status` = 'r';")
