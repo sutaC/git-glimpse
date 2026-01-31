@@ -30,6 +30,7 @@ def is_text(path: Path) -> bool:
     return True
 
 def timestamp_to_str(timestamp: int) -> str:
+    if not timestamp: return "?"
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 def size_to_str(size: int | None) -> str:

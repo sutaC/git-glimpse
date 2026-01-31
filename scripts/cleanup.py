@@ -89,6 +89,10 @@ def cleanup_extracted():
                 remove_dir(ext_path)
                 print(f"Removing {item}/extracted")
                 count += 1
+    # removes cached size
+    size_cache = REPO_PATH / ".size.json"
+    size_cache.unlink(missing_ok=True)
+    # ---
     print(f"Deleted {count} extracted")
 
 # --- sessions
