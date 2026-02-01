@@ -5,11 +5,12 @@
         <th>Repo</th>
         <th>User</th>
         <th>Status</th>
+        <th>Code</th>
         <th>Size</th>
         <th>Timestamp</th>
     </tr>
-    {% for id, repo_id, user_id, user_login, status, timestamp, size in builds
-    %}
+    {% for id, repo_id, user_id, user_login, status, code, timestamp, size in
+    builds %}
     <tr>
         <td>{{id}}</td>
         <td>
@@ -17,6 +18,7 @@
         </td>
         <td><a href="/admin/users/{{user_id|urlencode}}">{{user_login}}</a></td>
         <td class="status_{{status}}">{{status}}</td>
+        <td>{{code or "-"}}</td>
         <td>{{size}}</td>
         <td>{{timestamp}}</td>
     </tr>

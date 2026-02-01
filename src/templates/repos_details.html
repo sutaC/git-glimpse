@@ -26,7 +26,13 @@
             <p>Name: {{repo_name}}</p>
             <p>URL: {{url}}</p>
             <p>Created at: {{created}}</p>
-            <p>Build status: <output id="status">{{build_status}}</output> <i class="spinner" id="status_spinner"></i></p>
+            <p>Build status: 
+                <output id="status">{{build_status}}</output> 
+                {% if build_code %}
+                <i>({{build_code}})</i>
+                {% endif %}
+                <i class="spinner" id="status_spinner"></i> 
+            </p>
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
             <form action="/repos/build/{{repo_id|urlencode}}" method="post">

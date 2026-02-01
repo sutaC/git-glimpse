@@ -68,7 +68,8 @@ class Database:
                 `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v', 'r')), 
                 `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
                 `size` INTEGER CHECK (`size` >= 0),
-                `archive_size` INTEGER CHECK (`archive_size` >= 0)
+                `archive_size` INTEGER CHECK (`archive_size` >= 0),
+                `code` TEXT
             );
             CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
             CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
@@ -320,10 +321,10 @@ class Database:
         assert isinstance(build_id, int)
         return build_id
     
-    def update_build(self, build_id: int, status: str, size: int | None = None, archive_size:  int | None = None) -> None:
+    def update_build(self, build_id: int, status: str, size: int | None = None, archive_size:  int | None = None, code: str | None = None) -> None:
         self._cursor().execute('''
-            UPDATE `builds` SET `status` = ?, `size` = ?, `archive_size` = ? WHERE `id` = ?;
-        ''', [status, size, archive_size, build_id])
+            UPDATE `builds` SET `status` = ?, `size` = ?, `archive_size` = ?, `code` = ? WHERE `id` = ?;
+        ''', (status, size, archive_size, code, build_id))
         self._commit()
 
     def has_repo_active_build(self, repo_id: str) -> bool:
@@ -331,7 +332,7 @@ class Database:
 
     def get_latest_build(self, repo_id: str) -> Build | None:
         return self._fetch_one(
-            'SELECT `status`, `timestamp`, `size` FROM `builds` WHERE `repo_id` = ? ORDER BY `timestamp` DESC LIMIT 1;', 
+            'SELECT `status`, `timestamp`, `size`, `code` FROM `builds` WHERE `repo_id` = ? ORDER BY `timestamp` DESC LIMIT 1;', 
             (repo_id,), Build
         )
     
@@ -375,21 +376,23 @@ class Database:
             limit:int=10, 
             status: str='', 
             user: str='',
-            repo_id: str = ''
+            repo_id: str = '',
+            code: str | None = None
         ) -> list[BuildActivity]:
         if offset < 0: offset = 0
         if limit < 0: limit = 0
         if not is_vaild_status(status): status = ''
-        return self._fetch_all('''
-            SELECT `b`.`id`, `b`.`repo_id`, `u`.`id` AS `user_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`timestamp`, `b`.`size`
+        return self._fetch_all(f'''
+            SELECT `b`.`id`, `b`.`repo_id`, `u`.`id` AS `user_id`, `u`.`login` AS `user_login`, `b`.`status`, `b`.`code`, `b`.`timestamp`, `b`.`size`
             FROM `builds` AS `b`
             JOIN `users` AS `u` ON `b`.`user_id` = `u`.`id`
             WHERE `b`.`repo_id` LIKE ?
             AND `b`.`status` LIKE ?
             AND `u`.`login` LIKE ?
+            {'AND `b`.`code` LIKE ?' if code else 'AND ?'}
             ORDER BY `b`.`timestamp` DESC
             LIMIT ?, ?;
-        ''', (repo_id or '%', status or '%', user or '%', offset, limit), row_type=BuildActivity)
+        ''', (repo_id or '%', status or '%', user or '%', code or 1, offset, limit), row_type=BuildActivity)
     
     def expire_user_builds(self, user_id: int) -> None:
         # Removes non-latest builds

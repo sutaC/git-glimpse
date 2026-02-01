@@ -40,7 +40,7 @@ def main():
         try:
             repo_size, archive_size = git.clone_repo(repo.url, path, ssh_key_plain)
         except git.RepoError as re:
-            db.update_build(build.id, re.type)
+            db.update_build(build.id, re.type, code=re.code)
             git.remove_protected_dir(path)
             ts_end = time()
             if re.type == 'f': 

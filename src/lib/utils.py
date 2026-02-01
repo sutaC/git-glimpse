@@ -61,7 +61,7 @@ def code_to_role(code: str) -> str:
 
 def builds_activity_to_readable(builds: list[BuildActivity]):
     return [
-        (b.id, b.repo_id, b.user_id, b.user_login, code_to_status(b.status), timestamp_to_str(b.timestamp), size_to_str(b.size))
+        (b.id, b.repo_id, b.user_id, b.user_login, code_to_status(b.status), b.code, timestamp_to_str(b.timestamp), size_to_str(b.size))
         for b in builds
     ]
 

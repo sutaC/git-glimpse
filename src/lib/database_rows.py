@@ -64,6 +64,7 @@ class Build(NamedTuple):
     status: BuildStatus
     timestamp: int 
     size: int | None
+    code: str | None
 
 class Sizes(NamedTuple):
     size: int
@@ -75,6 +76,7 @@ class BuildActivity(NamedTuple):
     user_id: int
     user_login: str
     status: BuildStatus
+    code: str | None
     timestamp: int
     size: int
 

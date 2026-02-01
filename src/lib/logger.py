@@ -63,17 +63,17 @@ class Code:
     INVALID_PASSWORD = "INVALID_PASSWORD"
 
 USER_MESSAGES = {
-    Code.LIMIT_MAX_SIZE: "Repository exceeds 100 MB limit.",
-    Code.LIMIT_MAX_FILE: "One of your files exceeds 10 MB limit.",
-    Code.LIMIT_MAX_FILES: "Repository contains more than 10,000 files.",
-    Code.LIMIT_MAX_DIRS: "Repository contains more than 5,000 directories.",
-    Code.LIMIT_MAX_DEPTH: "Repository exceeds maximum directory depth of 20.",
-    Code.FORBIDDEN_FILE_TYPE: "Repository contains forbidden file type(s).",
-    Code.SCAN_TIMEOUT: "Repository scanning exceeded 10 seconds.",
-    Code.CLONE_TIMEOUT: "Repository cloning exceeded 30 seconds.",
-    Code.BUILD_EXCEPTION: "Build failed due to an unexpected error.",
-    Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock. Try again later.",
-    Code.REPO_NOT_FOUND: "Repository data was not found."
+    Code.LIMIT_MAX_SIZE: "Repository exceeds 100 MB limit",
+    Code.LIMIT_MAX_FILE: "One of your files exceeds 10 MB limit",
+    Code.LIMIT_MAX_FILES: "Repository contains more than 10,000 files",
+    Code.LIMIT_MAX_DIRS: "Repository contains more than 5,000 directories",
+    Code.LIMIT_MAX_DEPTH: "Repository exceeds maximum directory depth of 20",
+    Code.FORBIDDEN_FILE_TYPE: "Repository contains forbidden file type(s)",
+    Code.SCAN_TIMEOUT: "Repository scanning exceeded 10 seconds",
+    Code.CLONE_TIMEOUT: "Repository cloning exceeded 30 seconds",
+    Code.BUILD_EXCEPTION: "Build failed due to an unexpected error",
+    Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock. Try again later",
+    Code.REPO_NOT_FOUND: "Repository data was not found"
 }
 
 DEFAULT_LEVELS = {

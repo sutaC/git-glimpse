@@ -243,6 +243,7 @@ def repos_details(repo_id: str):
         build_status=("?" if not build else utils.code_to_status(build.status)),
         build_timestamp=("?" if not build else utils.timestamp_to_str(build.timestamp)),
         build_size=("?" if not build else utils.size_to_str(build.size)),
+        build_code=(lg.USER_MESSAGES.get(build.code, "") if build and build.code else None),
         build_count=build_count,
         build_limit=limits.build_limit
     )
@@ -382,8 +383,9 @@ def admin_builds():
     if not utils.is_vaild_status(status): status = ''
     user = request.args.get('user', '')
     repo_id = request.args.get('repo', '')
+    code = request.args.get('code')
     # ---
-    builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id)
+    builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id, code=code)
     return render_template(
         "admin_builds.html",
         builds=utils.builds_activity_to_readable(builds),
@@ -391,7 +393,8 @@ def admin_builds():
         page=page,
         status=status,
         user=user,
-        repo=repo_id
+        repo=repo_id,
+        code=code
     )
 
 @app.route("/admin/users")
