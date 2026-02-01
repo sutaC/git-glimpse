@@ -5,6 +5,7 @@ from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
 import lib.utils as utils
+import lib.logger as lg
 import lib.auth as auth
 import lib.git as git
 import time
@@ -14,8 +15,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
-
-REPO_PATH.mkdir(exist_ok=True)
 
 db = Database(DATABASE_PATH)
 with app.app_context():
@@ -59,10 +58,10 @@ def repos(repo_id: str, sub: str):
     if not repo_name: abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
-        abort(410, "Repo is not on server")
+        abort(404, "Repo not found on server")
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
-    except git.RepoError as e: abort(e.code, e.msg)
+    except git.RepoError as e: abort(400, lg.USER_MESSAGES.get(e.code, ""))
     # Makes list of path urls to all parent dirs
     rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
     parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
@@ -84,10 +83,10 @@ def raw(repo_id: str, sub: str):
     if not repo_name: abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
-        abort(410, "Repo is not on server")
+        abort(404, "Repo not found on server")
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
-    except git.RepoError as e: abort(e.code, e.msg)
+    except git.RepoError as e: abort(400, lg.USER_MESSAGES.get(e.code, ""))
     if path.is_dir():
         if sub: return redirect(f"/repos/{repo_id}/{sub}", 303)
         # Downloading repo archive
@@ -108,45 +107,36 @@ def raw(repo_id: str, sub: str):
 @app.route("/repos/add", methods=["GET", "POST"])
 @auth.login_required()
 def repos_add():
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: abort(404, "Could not find user data")
+    user_repos = db.count_user_repos(g.user.user_id)
+    user_builds = db.count_user_builds(g.user.user_id)
+    if user_repos >= limits.repo_limit:
+        return render_template("repos_add.html", error_msg=f"Reached repo limit per user ({user_repos}/{limits.repo_limit})", is_blocked=True)
+    if user_builds >= limits.build_limit:
+        return render_template("repos_add.html", error_msg=f"Reached build limit per user ({user_builds}/{limits.build_limit})", is_blocked=True)
     if request.method == "GET":
         return render_template("repos_add.html")
     # POST:
     # TODO: block if not verified
     url = request.form.get("url", "").strip()
-    if not url: abort(400, "Missing url")
+    if not url: 
+        return render_template("repos_add.html", error_msg="Missing url", url=url)
     ssh_key =  request.form.get("ssh_key")
     if ssh_key: ssh_key = ssh_key.strip()
     else: ssh_key = None
     if not utils.is_valid_repo_url(url):
-        abort(400, "Invalid url")
+        return render_template("repos_add.html", error_msg="Invalid url", url=url)
     if db.is_repo_url_for_user(url, g.user.user_id):  
-        abort(400, "Repo with that url already exists for that user")
-    limits = db.get_user_limits(g.user.user_id)
-    if not limits: abort(404, "Could not find user data")
-    user_repos = db.count_user_repos(g.user.user_id)
-    if user_repos >= limits.repo_limit:
-        abort(400, f"Reached repo limit per user ({user_repos}/{limits.repo_limit})")
-    user_builds = db.count_user_builds(g.user.user_id)
-    if user_builds >= limits.build_limit:
-        abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
+        return render_template("repos_add.html", error_msg="Repo with that url already exists for that user", url=url)
     if url.startswith("https://") and ssh_key:
-        abort(400, "To use ssh-key you need to provide ssh url")
+        return render_template("repos_add.html", error_msg="To use ssh-key you need to provide ssh url", url=url)
     if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
-    # build
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
     repo_id = db.add_repo(g.user.user_id, url, repo_name, ssh_key)
-    path = REPO_PATH / repo_id
-    build_id = db.add_build(g.user.user_id, repo_id)
-    repo_size = None
-    archive_size = None
-    try:
-        repo_size, archive_size = git.clone_repo(url, path, ssh_key)
-    except git.RepoError as re:
-        db.update_build(build_id, re.type)
-        git.remove_protected_dir(path)
-        if re.type == 'f': abort(re.code, f"Build failed: {re.msg}")
-        elif re.type == 'v': abort(re.code, f"Build detected violation of rules: {re.msg}")
-    db.update_build(build_id, 's', repo_size, archive_size)
+    lg.log(lg.Event.REPO_ADDED, repo_id=repo_id, user_id=g.user.user_id)
+    build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
+    lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/login", methods=["GET", "POST"])
@@ -158,15 +148,21 @@ def login():
     # POST:
     send_login = request.form.get("login", "").strip()
     send_password = request.form.get("password", "").strip()
-    if not send_login or not send_password: abort(400, "Missing login or password")
+    if not send_login or not send_password: 
+        return render_template("login.html", error_msg="Missing login or password", login=send_login)
     user = db.get_user_password(send_login)
-    if not user: abort(400, "Invalid login or password")
+        
+    if not user: 
+        lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.USER_NOT_FOUND, extra={"login": send_login})
+        return render_template("login.html", error_msg="Invalid login or password", login=send_login)
     if not auth.check_password(send_password, user.password): 
-        abort(400, "Invalid login or password")
+        lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.INVALID_PASSWORD, user_id=user.id)
+        return render_template("login.html", error_msg="Invalid login or password", login=send_login)
     expires = auth.get_session_expiriation(user.role)
     session_id = db.add_session(user.id, expires)
     response = redirect("/dashboard")
     response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    lg.log(lg.Event.AUTH_LOGIN_SUCCESS, user_id=user.id)
     return response
 
 @app.route("/register", methods=["GET", "POST"])
@@ -181,17 +177,18 @@ def register():
     password = request.form.get("password", "")
     r_password = request.form.get("r_password", "")
     if not user_login or not email or not password or not r_password:
-        abort(400, "Missing data")
+        return render_template("register.html", error_msg="Missing fields", login=user_login, email=email)
     if utils.is_valid_email(email):
-        abort(400, "Invalid email")
+        return render_template("register.html", error_msg="Invalid email", login=user_login, email=email)
     if password != r_password:
-        abort(400, "Password doesn't match repeated password")
+        return render_template("register.html", error_msg="Password does not match repeated password", login=user_login, email=email)
     pass_err = utils.is_valid_password(password)
-    if pass_err: abort(400, pass_err)
+    if pass_err: 
+        return render_template("register.html", error_msg=pass_err, login=user_login, email=email)
     if db.is_user_login(user_login):
-        abort(400, 'Login is already registered')
+        return render_template("register.html", error_msg="This login is already registered", login=user_login, email=email)
     if db.is_user_email(email):
-        abort(400, 'Email is already registered')
+        return render_template("register.html", error_msg="This email is already registered", login=user_login, email=email)
     # TODO: send verification email
     hashed_password = auth.hash_password(password)
     user_id = db.add_user(user_login, email, hashed_password, 'u')
@@ -199,6 +196,7 @@ def register():
     session_id = db.add_session(user_id, expires)
     response = redirect("/dashboard")
     response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    lg.log(lg.Event.AUTH_REGISTER, user_id=user_id)
     return response
 
 @app.route("/logout")
@@ -208,6 +206,7 @@ def logout():
     db.delete_user_expired_sessions(g.user.user_id)
     response = redirect("/login")
     response.delete_cookie("session_id")
+    lg.log(lg.Event.AUTH_LOGOUT, user_id=g.user.user_id)
     return response
 
 @app.route("/dashboard")
@@ -261,7 +260,8 @@ def build(repo_id: str):
         abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
     if db.has_repo_active_build(repo_id):  
         abort(400, "This repo already has pending build")
-    db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
+    build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
+    lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/repos/remove/<string:repo_id>")
@@ -274,7 +274,9 @@ def repos_remove(repo_id: str):
     try:
         if path.exists(): git.remove_protected_dir(path)
     except Exception as e:
-        abort(500, "Removal failed")
+        lg.log(lg.Event.SERVER_internal_ERROR, lg.Level.ERROR, repo_id=repo_id, extra={"reason": str(e)})
+        abort(500, "Repo removal failed")
+    lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
     return redirect("/dashboard")
 
 @app.route("/user")
@@ -314,6 +316,7 @@ def user_remove():
     for repo in repos:
         git.remove_protected_dir(REPO_PATH / repo.id)
     db.delete_user(g.user.user_id)
+    lg.log(lg.Event.AUTH_USER_REMOVED, user_id=g.user.user_id)
     return redirect("/login")
 
 @app.route("/admin")
@@ -451,16 +454,31 @@ def admin_users_id(user_id: int):
         if set_verified not in ["true", "false"]: abort(400, "Invalid `set_verified`")
         set_verified = set_verified == "true"
         db.set_user_verified(user_id, set_verified)
+        lg.log(
+            lg.Event.ADMIN_USER_VERIFICATION_CHANGE, 
+            lg.Level.WARN, user_id=user_id, 
+            extra={"admin_id": g.user.user_id, "value": set_verified}
+        )
     # Set role
     set_role = request.form.get("set_role", "")
     if set_role:
         if user.login == "root": abort(400, "Cannot modify root user")
         if set_role not in ["a", "u"]: abort(400, "Invalid `set_role`")
         db.set_user_role(user_id, set_role) # type: ignore -- type checked previously
+        lg.log(
+            lg.Event.ADMIN_USER_ROLE_CHANGE, 
+            lg.Level.WARN, user_id=user_id, 
+            extra={"admin_id": g.user.user_id, "value": set_role}
+        )
     # Expire
     expire = request.form.get("expire", "")
     if expire == "true":
         db.expire_user_builds(user_id)
+        lg.log(
+            lg.Event.ADMIN_USER_QUOTA_RESET, 
+            lg.Level.WARN, user_id=user_id, 
+            extra={"admin_id": g.user.user_id}
+        )
     return redirect(f'/admin/users/{user_id}')
 
 @app.teardown_appcontext

@@ -19,12 +19,12 @@
         </header>
         <main>
             <form action="/repos/add" method="post">
+                <p class="error_msg">{{error_msg}}</p>
                 <label for="url">Url:</label>
-                <input type="text" name="url" id="url" />
+                <input type="text" name="url" id="url" value="{{url}}" required />
                 <label for="ssh_key">Key:</label>
                 <textarea name="ssh_key" id="ssh_key"></textarea>
-                <button type="submit">Add</button>
-                {# TODO disable on max limit #}
+                <button type="submit" {{"disabled" if is_blocked else ""}}>Add</button>
             </form>
         </main>
     </body>

@@ -79,3 +79,14 @@ footer {
     visibility: hidden;
     /* to enable manually */
 }
+
+.error_msg {
+    background-color: rgba(255, 0, 0, 0.33);
+    padding: 0.25em 0.5rem;
+    border-radius: 0.125rem;
+    width: fit-content;
+}
+
+.error_msg:empty {
+    visibility: hidden;
+}

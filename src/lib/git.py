@@ -2,6 +2,7 @@ from cryptography.fernet import Fernet
 from typing import Literal
 from pathlib import Path
 import zstandard as zstd
+import lib.logger as lg
 import subprocess
 import tempfile
 import tarfile
@@ -27,11 +28,10 @@ MAX_SCAN_TIME = 10 # 10 s
 MAX_CLONE_TIME = 30 # 30 s
 
 class RepoError(RuntimeError):
-    def __init__(self, type: Literal['f', 'v'], code: int, msg: str | None = None, *args: object) -> None:
+    def __init__(self, type: Literal['f', 'v'], code: str, *args: object) -> None:
         super().__init__(*args)
         self.type: Literal['f', 'v'] = type
-        self.code: int = code
-        self.msg: str | None = msg
+        self.code: str = code
 
 class RepoLock:
     def __init__(self, repo_path: Path):
@@ -64,7 +64,7 @@ class RepoLock:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release()
 
-def check_repo_limits(path: Path):
+def check_repo_limits(path: Path) -> int:
     total_size = 0
     file_count = 0
     dir_count = 0
@@ -72,33 +72,33 @@ def check_repo_limits(path: Path):
     for f in path.rglob("*"):
         if f.is_file():
             if time.monotonic() - time_limit > MAX_SCAN_TIME:
-                raise RepoError('v', 400, "Exceeded time limit for repo scan")
+                raise RepoError('v', lg.Code.SCAN_TIMEOUT)
             file_count += 1
             if file_count > MAX_FILE_COUNT:
-                raise RepoError('v', 400, "Too many files")
+                raise RepoError('v', lg.Code.LIMIT_MAX_FILES)
             size = f.stat().st_size
             if size > MAX_FILE_SIZE:
-                raise RepoError('v', 400, f"File too large: {f}")
+                raise RepoError('v', lg.Code.LIMIT_MAX_FILE)
             total_size += size
             if total_size > MAX_REPO_SIZE:
-                raise RepoError('v', 400, "Repo too large")
+                raise RepoError('v', lg.Code.LIMIT_MAX_SIZE)
         if f.is_dir():
             dir_count += 1
             if dir_count > MAX_DIR_COUNT:
-                raise RepoError('v', 400, "Too many directories")
+                raise RepoError('v', lg.Code.LIMIT_MAX_DIRS)
             depth = len(f.relative_to(path).parts)
             if depth > MAX_DEPTH:
-                raise RepoError('v', 400, "Exceeded depth limit")
+                raise RepoError('v', lg.Code.LIMIT_MAX_DEPTH)
         elif f.is_symlink():
-            raise RepoError('v', 400, "Symlinks are not allowed")
+            raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
         elif f.is_fifo():
-            raise RepoError('v', 400, "Fifo are not allowed")
+            raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
         elif f.is_char_device():
-            raise RepoError('v', 400, "Char devices are not allowed")
+            raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
         elif f.is_socket():
-            raise RepoError('v', 400, "Sockets are not allowed")
+            raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
         elif f.is_block_device():
-            raise RepoError('v', 400, "Block devices are not allowed")
+            raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
     return total_size
    
 def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[int, int]:
@@ -129,14 +129,14 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
                     timeout=MAX_CLONE_TIME
                 )
             except subprocess.CalledProcessError as e:
-                raise RepoError('f', 500, f"Git clone failed: {e.stderr.decode()}") from e
+                raise RepoError('f', lg.Code.BUILD_EXCEPTION, {"reason": e.stderr.decode()})
             # Removes git
             git_dir = tmpdir / ".git"
             if git_dir.is_dir(): shutil.rmtree(git_dir, ignore_errors=True)
             # Checks git modules
             gitmodules_dir = tmpdir / ".gitmodules"
             if gitmodules_dir.exists(): 
-                raise RepoError('v', 400, "Git modules are not allowed")
+                raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
             # Checks repo limits
             repo_size = check_repo_limits(tmpdir)
             # Ensures target dir is empty
@@ -153,7 +153,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
     except RepoError:
         raise # pass RepoErorrs
     except Exception as e:
-        raise RepoError('f', 500, f'Build failed: {str(e)}')
+        raise RepoError('f', lg.Code.BUILD_EXCEPTION, {"reason": str(e)})
     finally:
         if key_path: key_path.unlink(missing_ok=True)
 
@@ -212,14 +212,15 @@ def remove_extracted(repo_path: Path) -> None:
 
 def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
     ext_path = repo_path / "extracted"
-    if not ext_path.exists(): 
+    if not ext_path.exists():
         extract_repo(repo_path)
+        lg.log(lg.Event.REPO_EXTRACTED, repo_id=repo_path.name)
     path = (ext_path / sub_path).resolve()
     if not path.is_relative_to(ext_path):
-        raise RepoError('f', 404, "Invalid subpath")
+        raise RepoError('f', lg.Code.REPO_NOT_FOUND)
     if path.is_symlink() or any(p.is_symlink() for p in path.parents):
-        raise RepoError('v', 400, "Symlinks are not allowed")
-    if not path.exists(): raise RepoError('f', 404)
+        raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
+    if not path.exists(): raise RepoError('f', lg.Code.REPO_NOT_FOUND)
     return path
 
 def zip_repo(ext_path: Path, zip_path: Path) -> None:

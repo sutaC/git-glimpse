@@ -4,18 +4,17 @@ load_dotenv()
 from lib.git import remove_protected_dir, RepoLock
 from globals import DATABASE_PATH, REPO_PATH
 from lib.database import Database
-from lib.logger import log
+from time import time
+import lib.logger as lg
 
 # --- repos
-def cleanup_repos(db: Database):
-    log("Starting repos cleanup")
+def cleanup_repos(db: Database) -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
         user_id: int | None = db._fetch_value("SELECT `user_id` FROM `repos` WHERE `id` = ?;", (item.name,))
         if not user_id: # Repo id not in db
             remove_protected_dir(item)
-            log(f"Removing repo {item} -- not existent in db")
             count += 1
             continue
         user_exists = db._fetch_exists("SELECT 1 FROM `users` WHERE `id` = ?;", (user_id,))
@@ -23,14 +22,12 @@ def cleanup_repos(db: Database):
             db._cursor().execute("DELETE FROM `repos` WHERE `user_id` = ?;", (user_id,))
             db._commit()
             remove_protected_dir(item)
-            log(f"Removing repo {item} -- no user attached")
             count += 1
             continue
-    log(f"Deleted {count} repos", "INFO")
+    return count
 
 # --- extracted
 def cleanup_extracted():
-    log("Starting extracted cleanup")
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
@@ -39,25 +36,21 @@ def cleanup_extracted():
         with RepoLock(ext_path):
             if ext_path.exists():
                 remove_protected_dir(ext_path)
-                log(f"Removing {item}/extracted")
                 count += 1
     # removes cached size
     size_cache = REPO_PATH / ".size.json"
     size_cache.unlink(missing_ok=True)
-    # ---
-    log(f"Deleted {count} extracted", "INFO")
+    return count
 
 # --- sessions
 def cleanup_sessions(db: Database):
-    log("Starting sessions cleanup")
     c = db._cursor()
     c.execute("DELETE FROM `sessions` WHERE `expires` < unixepoch();")
     db._commit()
-    log(f"Deleted {c.rowcount} expired sessions", "INFO")
+    return c.rowcount
 
 # --- builds
 def cleanup_builds(db: Database):
-    log("Starting builds cleanup")
     c = db._cursor()
     c.execute('''
             DELETE FROM `builds`
@@ -81,19 +74,30 @@ def cleanup_builds(db: Database):
             )
     ''')
     db._commit()
-    log(f"Deleted {c.rowcount} expired builds", "INFO")
+    return c.rowcount
 
 # --- main
 def main():
-    log("Startting cleanup worker", "INFO")
+    ts_start = time()
+    lg.log(lg.Event.CLEANUP_STARTED)
     db = Database(DATABASE_PATH, raw_mode=True)
     db.init_db()
-    cleanup_repos(db)
-    cleanup_extracted()
-    cleanup_builds(db)
-    cleanup_sessions(db)
+    cl_repos = cleanup_repos(db)
+    cl_extracted = cleanup_extracted()
+    cl_builds = cleanup_builds(db)
+    cl_sessions = cleanup_sessions(db)
     db._close()
-    log("Closing cleanup worker", "INFO")
+    ts_end = time()
+    lg.log(
+        lg.Event.CLEANUP_FINISHED, 
+        extra={
+            "duration": int((ts_end-ts_start)*1000),
+            "cl_repos": cl_repos, 
+            "cl_extracted": cl_extracted,
+            "cl_builds": cl_builds,
+            "cl_sessions": cl_sessions
+        }
+    )
 
 if __name__ == "__main__":
     main()
