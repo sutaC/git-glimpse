@@ -16,14 +16,18 @@
             <nav>
                 <a href="/">Home</a>
                 <a href="/user">User</a>
-                {% if is_admin %}
+                {% if g.user.is_verified %} {% if is_admin %}
                 <a href="/admin">Admin</a>
                 {% endif %}
                 <a href="/repos/add">Add</a>
+                {% endif %}
                 <a href="/logout">Logout</a>
             </nav>
         </header>
         <main>
+            {% if not g.user.is_verified %}
+            <h2><a href="/verify">Verify your account</a></h2>
+            {% endif %}
             <section>
                 <div class="section_header">
                     <h2>Repos</h2>

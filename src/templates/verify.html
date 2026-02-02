@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>User | Git Glimpse</title>
+        <title>Verify | Git Glimpse</title>
 
         <link
             rel="stylesheet"
@@ -12,26 +12,24 @@
     </head>
     <body>
         <header>
-            <h1>User - {{g.user.login}}</h1>
+            <h1>Verify - {{g.user.login}}</h1>
             <nav>
                 <a href="/dashboard">Dashboard</a>
             </nav>
         </header>
         <main>
-            <p>Role: {{role}}</p>
-            <p>
-                Email: {{email or "-"}} {{"" if not email else "(verified)" if
-                g.user.is_verified else "(not verified)"}}
-            </p>
-            <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
-            <p>Build quota: {{build_count}}/{{build_limit}}</p>
-            <hr />
-            {% if g.user.is_verified and g.user.login != "root" %}
-            <p><a href="/password/change">Change password</a></p>
-            {% endif %}
-            <hr />
-            {% if g.user.login != "root" %}
-            <p><a href="/user/remove">Remove account</a></p>
+            {% if g.user.is_verified %}
+            <p class="verification_success">Your account is verified!</p>
+            {% else %}
+            <p>Verify your account, check your email: {{email}}</p>
+            <form action="/verify/resend" method="post">
+                <p>Resend verification email</p>
+
+                <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
+                {% if blocked %}
+                <small>Cannot yet send another email</small>
+                {% endif %}
+            </form>
             {% endif %}
         </main>
         <footer>

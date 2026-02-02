@@ -4,6 +4,7 @@ from tempfile import NamedTemporaryFile
 from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
+from lib import emails
 import lib.utils as utils
 import lib.logger as lg
 import lib.auth as auth
@@ -19,6 +20,10 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
+
+@app.teardown_appcontext
+def db_close(error=None):
+    db._close()
 
 @app.before_request
 def load_user():
@@ -106,6 +111,7 @@ def raw(repo_id: str, sub: str):
 
 @app.route("/repos/add", methods=["GET", "POST"])
 @auth.login_required()
+@auth.verification_required()
 def repos_add():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -118,7 +124,6 @@ def repos_add():
     if request.method == "GET":
         return render_template("repos_add.html")
     # POST:
-    # TODO: block if not verified
     url = request.form.get("url", "").strip()
     if not url: 
         return render_template("repos_add.html", error_msg="Missing url", url=url)
@@ -141,26 +146,26 @@ def repos_add():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    next_url = request.args.get("next")
     if g.user:
-        return redirect("/dashboard")
+        return redirect(auth.safe_redirect_url(next_url))
     if request.method == "GET":
-        return render_template("login.html")
+        return render_template("login.html", next_url=next_url)
     # POST:
     send_login = request.form.get("login", "").strip()
     send_password = request.form.get("password", "").strip()
     if not send_login or not send_password: 
-        return render_template("login.html", error_msg="Missing login or password", login=send_login)
+        return render_template("login.html", error_msg="Missing login or password", login=send_login, next_url=next_url)
     user = db.get_user_password(send_login)
-        
     if not user: 
         lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.USER_NOT_FOUND, extra={"login": send_login})
-        return render_template("login.html", error_msg="Invalid login or password", login=send_login)
+        return render_template("login.html", error_msg="Invalid login or password", login=send_login, next_url=next_url)
     if not auth.check_password(send_password, user.password): 
         lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.INVALID_PASSWORD, user_id=user.id)
-        return render_template("login.html", error_msg="Invalid login or password", login=send_login)
+        return render_template("login.html", error_msg="Invalid login or password", login=send_login, next_url=next_url)
     expires = auth.get_session_expiriation(user.role)
     session_id = db.add_session(user.id, expires)
-    response = redirect("/dashboard")
+    response = redirect(auth.safe_redirect_url(next_url))
     response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_LOGIN_SUCCESS, user_id=user.id)
     return response
@@ -189,7 +194,6 @@ def register():
         return render_template("register.html", error_msg="This login is already registered", login=user_login, email=email)
     if db.is_user_email(email):
         return render_template("register.html", error_msg="This email is already registered", login=user_login, email=email)
-    # TODO: send verification email
     hashed_password = auth.hash_password(password)
     user_id = db.add_user(user_login, email, hashed_password, 'u')
     expires = auth.get_session_expiriation('u')
@@ -197,6 +201,14 @@ def register():
     response = redirect("/dashboard")
     response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_REGISTER, user_id=user_id)
+    # Verification email
+    token = db.add_token(user_id, 'e_ver')
+    emails.send_email(
+        email, 
+        emails.Subjects.EMAIL_VERIFICATION, 
+        emails.template_verification(user_login, utils.timestamp_to_str(token.expires), utils.get_verify_url(token.id))
+    )
+    lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST, user_id=user_id)
     return response
 
 @app.route("/logout")
@@ -212,7 +224,6 @@ def logout():
 @app.route("/dashboard")
 @auth.login_required()
 def dashboard():
-    # TODO: verification message if not verified
     repos = db.list_user_repos(g.user.user_id)
     return render_template(
         "dashboard.html", 
@@ -222,6 +233,7 @@ def dashboard():
 
 @app.route("/repos/details/<string:repo_id>")
 @auth.login_required()
+@auth.verification_required()
 def repos_details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
@@ -249,6 +261,8 @@ def repos_details(repo_id: str):
     )
 
 @app.route("/repos/build/<string:repo_id>", methods=["POST"])
+@auth.login_required()
+@auth.verification_required()
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
@@ -265,7 +279,9 @@ def build(repo_id: str):
     lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return redirect(f"/repos/details/{repo_id}")
 
-@app.route("/repos/remove/<string:repo_id>")
+@app.route("/repos/remove/<string:repo_id>", methods=["POST"])
+@auth.login_required()
+@auth.verification_required()
 def repos_remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     user_id = db.get_repo_user_id(repo_id)
@@ -290,9 +306,7 @@ def user():
     repo_count = db.count_user_repos(g.user.user_id)
     return render_template(
         "user.html",
-        user_login=g.user.login, 
         role=utils.code_to_role(g.user.role), 
-        is_verified=g.user.is_verified,
         email=email,
         build_count=build_count,
         repo_count=repo_count,
@@ -322,6 +336,7 @@ def user_remove():
 
 @app.route("/admin")
 @auth.login_required()
+@auth.verification_required()
 @auth.role_required('a')
 def admin():
     repo_count = db.count_repos()
@@ -346,6 +361,7 @@ def admin():
 
 @app.route("/admin/repos")
 @auth.login_required()
+@auth.verification_required()
 @auth.role_required('a')
 def admin_repos():
     page = request.args.get('page', '0')
@@ -374,6 +390,7 @@ def admin_repos():
 
 @app.route("/admin/builds")
 @auth.login_required()
+@auth.verification_required()
 @auth.role_required('a')
 def admin_builds():
     page = request.args.get('page', '0')
@@ -399,6 +416,7 @@ def admin_builds():
 
 @app.route("/admin/users")
 @auth.login_required()
+@auth.verification_required()
 @auth.role_required('a')
 def admin_users():
     page = request.args.get('page', '0')
@@ -425,6 +443,7 @@ def admin_users():
 
 @app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
 @auth.login_required()
+@auth.verification_required()
 @auth.role_required('a')
 def admin_users_id(user_id: int):
     user = db.get_user(user_id)
@@ -484,11 +503,131 @@ def admin_users_id(user_id: int):
         )
     return redirect(f'/admin/users/{user_id}')
 
-@app.teardown_appcontext
-def db_close(error=None):
-    db._close()
+@app.route("/verify")
+@auth.login_required()
+def verify():
+    email = db.get_user_email(g.user.user_id)
+    assert email is not None
+    token = request.args.get("t")
+    blocked = db.has_recent_token(g.user.user_id, 'e_ver')
+    if g.user.is_verified or not token: return render_template("verify.html", email=email, blocked=blocked)
+    if g.user.login == "root": abort(400, "Cannot modify root user")
+    is_valid = db.is_valid_token(token, g.user.user_id, 'e_ver')
+    if not is_valid: 
+        lg.log(lg.Event.AUTH_EMAIL_VERIFY_INVALID, lg.Level.WARN, user_id=g.user.user_id)
+        return render_template("verify.html", email=email, blocked=blocked)
+    db.delete_user_tokens(g.user.user_id, 'e_ver')
+    db.set_user_verified(g.user.user_id, True)
+    g.user.is_verified = True
+    lg.log(lg.Event.AUTH_EMAIL_VERIFY_COMPLETE, user_id=g.user.user_id)
+    return render_template("verify.html")
 
-# TODO: /verify : verification emails
-# TODO: /verify/resend : resend verification emails
-# TODO: /recover : recover password by emails
-# TODO: /reset : reset password by emails
+@app.route("/verify/resend", methods=["POST"])
+@auth.login_required()
+def verify_resend():
+    if g.user.is_verified: return redirect("/dashboard")
+    email = db.get_user_email(g.user.user_id)
+    assert email is not None
+    if db.has_recent_token(g.user.user_id, 'e_ver'):
+        lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST_BLOCKED, lg.Level.WARN, user_id=g.user.user_id)
+        return render_template("verify.html", error_msg="Rate limit exceeded", email=email, blocked=True)
+    token = db.add_token(g.user.user_id, 'e_ver')
+    emails.send_email(
+        email, 
+        emails.Subjects.EMAIL_VERIFICATION, 
+        emails.template_verification(g.user.login, utils.timestamp_to_str(token.expires), utils.get_verify_url(token.id))
+    )
+    lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST, user_id=g.user.user_id)
+    return render_template("verify.html", email=email, blocked=True)
+
+@app.route("/password/change", methods=["GET", "POST"])
+@auth.login_required()
+@auth.verification_required()
+def password_change():
+    if g.user.login == "root": abort(400, "Cannot modify root user")
+    if request.method == "GET":
+        return render_template("password_change.html")
+    c_pass = request.form.get("c_password")
+    n_pass = request.form.get("n_password")
+    r_pass = request.form.get("r_password")
+    if not c_pass or not n_pass or not r_pass: 
+        return render_template("password_change.html", error_msg="Missing data")
+    if n_pass != r_pass:
+        return render_template("password_change.html", error_msg="Password does not match repeated password")
+    if c_pass == n_pass:
+        return render_template("password_change.html", error_msg="New password cannot be the same as previous password")
+    pass_err = utils.is_valid_password(n_pass)
+    if pass_err:
+        return render_template("password_change.html", error_msg=pass_err)
+    user = db.get_user_password(g.user.login)
+    assert user is not None
+    if not auth.check_password(c_pass, user.password):
+        lg.log(lg.Event.AUTH_PASSWORD_CHANGE_FAILURE,  lg.Level.WARN, user_id=user.id)
+        return render_template("password_change.html", error_msg="Invalid password")
+    upd_pass = auth.hash_password(n_pass)
+    db.set_user_password(user.id, upd_pass)
+    db.delete_user_sessions(user.id)
+    g.clear_session_cookie = True
+    lg.log(lg.Event.AUTH_PASSWORD_CHANGE_SUCCESS, user_id=user.id)
+    return redirect("/login")
+
+@app.route("/password/recover", methods=["GET", "POST"])
+def password_recover():
+    if request.method == "GET":
+        return render_template("password_recover.html")
+    email = request.form.get("email", "")
+    user = db.get_user_by_email(email)
+    if not user: 
+        lg.log(lg.Event.AUTH_PASSWORD_RECOVERY_REQUEST_INVALID, lg.Level.DEBUG)
+        return render_template("password_recover.html", resp=True)
+    if not user.is_verified:
+        lg.log(lg.Event.AUTH_PASSWORD_RECOVERY_REQUEST_BLOCKED, lg.Level.WARN, user_id=user.id, extra={"msg": "Not verified"})
+        return render_template("password_recover.html", resp=True)
+    if db.has_recent_token(user.id, 'p_rec'):
+        lg.log(lg.Event.AUTH_PASSWORD_RECOVERY_REQUEST_BLOCKED, lg.Level.WARN, user_id=user.id, extra={"msg": "Rate limit"})
+        return render_template("password_recover.html", resp=True)
+    token = db.add_token(user.id, 'p_rec')
+    emails.send_email(
+        email,
+        emails.Subjects.PASSWORD_RECOVERY,
+        emails.template_password_recovery(
+            user.login, 
+            utils.timestamp_to_str(token.expires), 
+            utils.get_password_reset_url(token.id)
+        )
+    )
+    lg.log(lg.Event.AUTH_PASSWORD_RECOVERY_REQUEST, user_id=user.id)
+    return render_template("password_recover.html", resp=True)
+
+@app.route("/password/reset", methods=["GET", "POST"])
+def password_reset():
+    token = request.args.get("t")
+    if not token: 
+        lg.log(lg.Event.AUTH_PASSWORD_RESET_INVALID, lg.Level.WARN)
+        abort(404)
+    uid = db.get_valid_token_user(token, 'p_rec')
+    if not uid: 
+        lg.log(lg.Event.AUTH_PASSWORD_RESET_INVALID, lg.Level.WARN)    
+        abort(404)
+    if not db.is_user_verified(uid):
+        lg.log(lg.Event.AUTH_PASSWORD_RESET_INVALID, lg.Level.WARN)    
+        abort(404)        
+    user_login = db.get_user_login(uid)
+    if request.method == "GET":
+        return render_template("password_reset.html", token=token, login=user_login)
+    # POST
+    password = request.form.get("password")
+    r_password = request.form.get("r_password")
+    if not password or not r_password: 
+        return render_template("password_reset.html", token=token, login=user_login, error_msg="Missing data")
+    if password != r_password:
+        return render_template("password_reset.html", token=token, login=user_login, error_msg="Password does not match repeated password")
+    pass_err = utils.is_valid_password(password)
+    if pass_err:
+        return render_template("password_reset.html", token=token, login=user_login, error_msg=pass_err)
+    upd_pass = auth.hash_password(password)
+    db.set_user_password(uid, upd_pass)
+    db.delete_user_sessions(uid)
+    db.delete_user_tokens(uid, 'p_rec')
+    lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
+    return redirect("/login")

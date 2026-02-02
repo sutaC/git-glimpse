@@ -42,6 +42,11 @@ class UserAuth(NamedTuple):
     password: str
     role: str
 
+class UserRecover(NamedTuple):
+    id: int
+    login: str
+    is_verified: bool
+
 class UserActivity(NamedTuple):
     id: int
     login: str
@@ -83,3 +88,8 @@ class BuildActivity(NamedTuple):
 class BuildWork(NamedTuple):
     id: int
     repo_id: str
+
+# --- tokens
+class TokenCreate(NamedTuple):
+    id: str
+    expires: int

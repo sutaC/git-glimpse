@@ -1,7 +1,9 @@
-from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, User, UserActivity, UserAuth
+from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserRecover
 from lib.utils import is_vaild_status
 from secrets import token_urlsafe
+from typing import Literal
 from pathlib import Path
+from time import time
 from flask import g
 import lib.auth as auth
 import sqlite3
@@ -73,6 +75,15 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
             CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
+            CREATE TABLE IF NOT EXISTS `tokens` (
+                `id` TEXT PRIMARY KEY,
+                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `type` TEXT NOT NULL CHECK (`type` IN ('e_ver', 'p_rec')),
+                `issued` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `expires` INTEGER NOT NULL DEFAULT (unixepoch() + 3600)
+            );
+            CREATE INDEX IF NOT EXISTS `idx_tokens_user_type` ON tokens(`user_id`, `type`);
+            CREATE INDEX IF NOT EXISTS `idx_tokens_type_expires` ON tokens(`type`, `expires`);
         ''')
         self._commit()
         cursor.execute("SELECT `id` FROM `users` WHERE `login` = 'root';")
@@ -236,9 +247,20 @@ class Database:
         )
         self._commit()
 
+    def set_user_password(self, user_id: int, password: str) -> None:
+        self._cursor().execute(
+            'UPDATE `users` SET `password` = ? WHERE `id` = ?;',
+            (password, user_id)
+        )
+        self._commit()
+
     def is_user_login(self, login: str) -> bool:
         return self._fetch_exists('SELECT 1 FROM `users` WHERE `login` = ?;', (login,))
     
+    def is_user_verified(self, user_id: int) -> bool:
+        r = self._fetch_value('SELECT `is_verified` FROM `users` WHERE `id` = ?;', (user_id,))
+        return r is not None and bool(r)
+
     def is_user_email(self, email: str) -> bool:
         return self._fetch_exists('SELECT 1 FROM `users` WHERE `email` = ?;', (email,))
 
@@ -250,7 +272,11 @@ class Database:
 
     def get_user(self, user_id: int) -> User | None:
         return self._fetch_one('SELECT `login`, `role`, `is_verified` FROM `users` WHERE `id` = ?;', (user_id,), User)
-    
+
+    def get_user_by_email(self, email: str) -> UserRecover | None:
+        if not email: return None
+        return self._fetch_one('SELECT `id`, `login`, `is_verified` FROM `users` WHERE `email` = ?;', (email,), UserRecover)
+
     def delete_user(self, user_id: int) -> None:
         self._cursor().execute('DELETE FROM `users` WHERE `id` = ?;', (user_id,))
         self._commit()
@@ -302,6 +328,10 @@ class Database:
     
     def delete_session(self, session_id: str) -> None:
         self._cursor().execute('DELETE FROM `sessions` WHERE `id` = ?;', (session_id,))
+        self._commit()
+
+    def delete_user_sessions(self, user_id: int) -> None:
+        self._cursor().execute('DELETE FROM `sessions` WHERE `user_id` = ?;', (user_id,))
         self._commit()
 
     def delete_all_expired_sessions(self) -> None:
@@ -429,3 +459,57 @@ class Database:
     
     def resurect_running_builds(self) -> None:
         self._cursor().execute("UPDATE `builds` SET `status` = 'p' WHERE `status` = 'r';")
+    
+    # --- tokens
+    def add_token(self, user_id: int, type: Literal['e_ver', 'p_rec']) -> TokenCreate:
+        assert type in ['e_ver', 'p_rec']
+        tid = token_urlsafe(32)
+        expires = int(time()) + 3600 # now + 1h
+        self._cursor().execute('''
+            INSERT INTO `tokens` (`id`, `user_id`, `type`, `expires`)
+            VALUES (?, ?, ?, ?);
+        ''', (tid, user_id, type, expires))
+        self._commit()
+        return TokenCreate(tid, expires)
+    
+    def has_recent_token(self, user_id: int, type: Literal['e_ver', 'p_rec']) -> bool:
+        """
+        Has token issued in last:
+        - 10 minutes : password_recovery ('p_rec')
+        - 10 minutes : email_verification ('e_ver')
+        """
+        assert type in ['e_ver', 'p_rec']
+        return self._fetch_exists('''
+            SELECT 1 FROM `tokens` 
+            WHERE `user_id` = ? 
+            AND `type` = ?
+            AND `issued` > (unixepoch() - 600)
+        ''', (user_id, type))
+
+    def is_valid_token(self, token: str, user_id: int, type: Literal['e_ver', 'p_rec']) -> bool:
+        assert type in ['e_ver', 'p_rec']
+        return self._fetch_exists('''
+            SELECT 1 FROM `tokens` 
+            WHERE `id` = ? 
+            AND `user_id` = ? 
+            AND `type` = ?
+            AND `expires` > unixepoch()
+        ''', (token, user_id, type))
+    
+    def get_valid_token_user(self, token: str, type: Literal['e_ver', 'p_rec']) -> int | None:
+        assert type in ['e_ver', 'p_rec']
+        return self._fetch_value('''
+            SELECT `user_id` FROM `tokens`
+            WHERE `id` = ? 
+            AND `type` = ?
+            AND `expires` > unixepoch()
+        ''', (token, type))
+
+    def delete_user_tokens(self, user_id: int, type: Literal['e_ver', 'p_rec']) -> None:
+        assert type in ['e_ver', 'p_rec']
+        self._cursor().execute('''
+            DELETE FROM `tokens` 
+            WHERE `user_id` = ? 
+            AND `type` = ?
+        ''', (user_id, type))
+        self._commit()

@@ -42,9 +42,9 @@
                 >Build</button> <i>(build
             qouta: {{build_count}}/{{build_limit}})</i>
             </form>
-            <p>
-                <a href="/repos/remove/{{repo_id|urlencode}}">Remove</a>
-            </p>
+            <form action="/repos/remove/{{repo_id|urlencode}}" method="post">
+                <button type="submit" >Remove</button>
+            </form>
         </main>
         <footer>
             Made by:

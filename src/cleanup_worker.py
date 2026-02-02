@@ -49,6 +49,13 @@ def cleanup_sessions(db: Database):
     db._commit()
     return c.rowcount
 
+# --- tokens
+def cleanup_tokens(db: Database):
+    c = db._cursor()
+    c.execute("DELETE FROM `tokens` WHERE `expires` < unixepoch();")
+    db._commit()
+    return c.rowcount
+
 # --- builds
 def cleanup_builds(db: Database):
     c = db._cursor()
@@ -86,6 +93,7 @@ def main():
     cl_extracted = cleanup_extracted()
     cl_builds = cleanup_builds(db)
     cl_sessions = cleanup_sessions(db)
+    cl_tokens = cleanup_tokens(db)
     db._close()
     ts_end = time()
     lg.log(
@@ -95,7 +103,8 @@ def main():
             "cl_repos": cl_repos, 
             "cl_extracted": cl_extracted,
             "cl_builds": cl_builds,
-            "cl_sessions": cl_sessions
+            "cl_sessions": cl_sessions,
+            "cl_tokens": cl_tokens
         }
     )
 

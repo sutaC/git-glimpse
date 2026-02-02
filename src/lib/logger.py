@@ -43,9 +43,16 @@ class Event:
     AUTH_REGISTER = "auth.register"
     AUTH_USER_REMOVED = "auth.user.removed"
     AUTH_EMAIL_VERIFY_REQUEST = "auth.email.verify.request"
+    AUTH_EMAIL_VERIFY_REQUEST_BLOCKED = "auth.email.request.blocked"
     AUTH_EMAIL_VERIFY_COMPLETE = "auth.email.verify.complete"
-    AUTH_PASSWORD_RESET_REQUEST = "auth.password.reset.request"
-    AUTH_PASSWORD_RESET_COMPLETE = "auth.password.reset.complete"
+    AUTH_EMAIL_VERIFY_INVALID = "auth.email.verify.invalid"
+    AUTH_PASSWORD_RECOVERY_REQUEST = "auth.password.recovery.request"
+    AUTH_PASSWORD_RECOVERY_REQUEST_BLOCKED = "auth.password.recovery.request.blocked"
+    AUTH_PASSWORD_RECOVERY_REQUEST_INVALID = "auth.password.recovery.request.invalid"
+    AUTH_PASSWORD_RESET_SUCCESS = "auth.password.reset.success"
+    AUTH_PASSWORD_RESET_INVALID = "auth.password.reset.invalid"
+    AUTH_PASSWORD_CHANGE_FAILURE = "auth.password.change.failure"
+    AUTH_PASSWORD_CHANGE_SUCCESS = "auth.password.change.success"
 
 class Code:
     LIMIT_MAX_SIZE = "LIMIT_MAX_SIZE"
