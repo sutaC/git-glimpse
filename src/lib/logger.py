@@ -53,6 +53,9 @@ class Event:
     AUTH_PASSWORD_RESET_INVALID = "auth.password.reset.invalid"
     AUTH_PASSWORD_CHANGE_FAILURE = "auth.password.change.failure"
     AUTH_PASSWORD_CHANGE_SUCCESS = "auth.password.change.success"
+    # Emails
+    EMAIL_SEND = "email.send"
+    EMAIL_SEND_FAILED = "email.send.failed"
 
 class Code:
     LIMIT_MAX_SIZE = "LIMIT_MAX_SIZE"

@@ -183,7 +183,7 @@ def register():
     r_password = request.form.get("r_password", "")
     if not user_login or not email or not password or not r_password:
         return render_template("register.html", error_msg="Missing fields", login=user_login, email=email)
-    if utils.is_valid_email(email):
+    if not utils.is_valid_email(email):
         return render_template("register.html", error_msg="Invalid email", login=user_login, email=email)
     if password != r_password:
         return render_template("register.html", error_msg="Password does not match repeated password", login=user_login, email=email)
@@ -204,11 +204,14 @@ def register():
     # Verification email
     token = db.add_token(user_id, 'e_ver')
     emails.send_email(
-        email, 
-        emails.Subjects.EMAIL_VERIFICATION, 
-        emails.template_verification(user_login, utils.timestamp_to_str(token.expires), utils.get_verify_url(token.id))
+        emails.EmailIntent.EMAIL_VERIFICATION,
+        to=email,
+        user_id=user_id,
+        is_verified=False,
+        user=user_login,
+        token=token.id,
+        expires=utils.timestamp_to_str(token.expires),
     )
-    lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST, user_id=user_id)
     return response
 
 @app.route("/logout")
@@ -533,9 +536,13 @@ def verify_resend():
         return render_template("verify.html", error_msg="Rate limit exceeded", email=email, blocked=True)
     token = db.add_token(g.user.user_id, 'e_ver')
     emails.send_email(
-        email, 
-        emails.Subjects.EMAIL_VERIFICATION, 
-        emails.template_verification(g.user.login, utils.timestamp_to_str(token.expires), utils.get_verify_url(token.id))
+        emails.EmailIntent.EMAIL_VERIFICATION,
+        to=email,
+        user_id=g.user.user_id,
+        is_verified=g.user.is_verified,
+        user=g.user.login,
+        token=token.id,
+        expires=utils.timestamp_to_str(token.expires),
     )
     lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST, user_id=g.user.user_id)
     return render_template("verify.html", email=email, blocked=True)
@@ -588,13 +595,13 @@ def password_recover():
         return render_template("password_recover.html", resp=True)
     token = db.add_token(user.id, 'p_rec')
     emails.send_email(
-        email,
-        emails.Subjects.PASSWORD_RECOVERY,
-        emails.template_password_recovery(
-            user.login, 
-            utils.timestamp_to_str(token.expires), 
-            utils.get_password_reset_url(token.id)
-        )
+        emails.EmailIntent.PASSWORD_RECOVERY,
+        to=email,
+        user_id=user.id,
+        is_verified=user.is_verified,
+        user=user.login,
+        token=token.id,
+        expires=utils.timestamp_to_str(token.expires),
     )
     lg.log(lg.Event.AUTH_PASSWORD_RECOVERY_REQUEST, user_id=user.id)
     return render_template("password_recover.html", resp=True)

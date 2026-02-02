@@ -2,12 +2,9 @@ from lib.database_rows import BuildActivity, RepoActivity, UserActivity
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-import os
 
 GITHUB_URL_REGEX = re.compile(r'^(?:https:\/\/github\.com\/|git@github\.com:)[\w\-]+\/[\w\-]+(?:\.git)?$')
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_ENV = os.environ.get("ENV", "dev")
-_DOMAIN = os.environ.get("DOMAIN", "")
 
 def is_valid_repo_url(url: str) -> bool:
     return bool(GITHUB_URL_REGEX.match(url))
@@ -79,13 +76,3 @@ def repos_activity_to_readable(repos: list[RepoActivity]):
         (r.id, r.user_id, r.user_login, r.url, r.has_key, timestamp_to_str(r.created), code_to_status(r.status), size_to_str(r.size), timestamp_to_str(r.timestamp))
         for r in repos
     ]
-
-def get_verify_url(token: str) -> str:
-    if _ENV == "prod": base = f"https://{_DOMAIN}"
-    else: base = "http://127.0.0.1:5000"
-    return base + f"/verify?t={token}"
-
-def get_password_reset_url(token: str) -> str:
-    if _ENV == "prod": base = f"https://{_DOMAIN}"
-    else: base = "http://127.0.0.1:5000"
-    return base + f"/password/reset?t={token}"
