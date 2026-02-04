@@ -5,6 +5,7 @@ from lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
 from lib import emails
+import cleanup_worker as cworker
 import lib.utils as utils
 import lib.logger as lg
 import lib.auth as auth
@@ -349,6 +350,7 @@ def admin():
     sizes = db.sum_build_sizes()
     extracted_size = git.get_extracted_size()
     builds = db.list_builds()
+    cleanup_data = cworker.get_last_cleanup()
     return render_template(
         "admin.html",
         repo_count=repo_count,
@@ -360,7 +362,18 @@ def admin():
         extracted_size=utils.size_to_str(extracted_size),
         total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
         latest_activity=utils.builds_activity_to_readable(builds),
+        cleanup_data=cleanup_data
     )
+
+@app.route("/admin/cleanup", methods=["POST"])
+@auth.login_required()
+@auth.verification_required()
+@auth.role_required('a')
+def admin_cleanup():
+    lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
+    try: cworker.main()
+    except: abort(500, "Cleanup failed")
+    return redirect("/admin")
 
 @app.route("/admin/repos")
 @auth.login_required()

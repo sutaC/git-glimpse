@@ -3,9 +3,14 @@ load_dotenv()
 # ensures loaded .env in modules
 from lib.git import remove_protected_dir, RepoLock
 from globals import DATABASE_PATH, REPO_PATH
+from lib.utils import timestamp_to_str
 from lib.database import Database
+from typing import NamedTuple
 from time import time
 import lib.logger as lg
+import json
+
+CLEANUP_PATH = REPO_PATH / ".cleanup.json"
 
 # --- repos
 def cleanup_repos(db: Database) -> int:
@@ -83,6 +88,24 @@ def cleanup_builds(db: Database):
     db._commit()
     return c.rowcount
 
+# Save data
+class CleanupData(NamedTuple):
+    satarted: str
+    duration: int
+    cl_repos: int 
+    cl_extracted: int
+    cl_builds: int
+    cl_session: int
+    cl_tokens: int
+
+def get_last_cleanup() -> CleanupData | None:
+    if not CLEANUP_PATH.exists(): return None
+    try:
+        with open(CLEANUP_PATH, "r") as cf:
+            data = json.load(cf)
+            return CleanupData(*data.values())
+    except: return None
+
 # --- main
 def main():
     ts_start = time()
@@ -96,10 +119,24 @@ def main():
     cl_tokens = cleanup_tokens(db)
     db._close()
     ts_end = time()
+    duration = int((ts_end-ts_start)*1000)
+    # Saves last cleanup data to file
+    try:
+        with open(CLEANUP_PATH, "w") as cf:
+            json.dump({
+                "satarted": timestamp_to_str(int(ts_start)),
+                "duration": duration,
+                "cl_repos": cl_repos,
+                "cl_extracted": cl_extracted,
+                "cl_builds": cl_builds,
+                "cl_sessions": cl_sessions,
+                "cl_tokens": cl_tokens
+            }, cf)
+    except: pass
     lg.log(
         lg.Event.CLEANUP_FINISHED, 
         extra={
-            "duration": int((ts_end-ts_start)*1000),
+            "duration": duration,
             "cl_repos": cl_repos, 
             "cl_extracted": cl_extracted,
             "cl_builds": cl_builds,
@@ -107,6 +144,7 @@ def main():
             "cl_tokens": cl_tokens
         }
     )
+
 
 if __name__ == "__main__":
     main()
