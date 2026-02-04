@@ -30,6 +30,8 @@ class Event:
     CLEANUP_FINISHED = "cleanup.finished"
     # Admin
     ADMIN_USER_ROLE_CHANGE = "admin.user.role.change"
+    ADMIN_USER_BAN = "admin.user.ban"
+    ADMIN_USER_UNBAN = "admin.user.unban"
     ADMIN_USER_VERIFICATION_CHANGE = "admin.user.verification.change"
     ADMIN_USER_QUOTA_RESET = "admin.user.quota.reset"
     ADMIN_FORCED_CLEANUP = "admin.forced.cleanup"

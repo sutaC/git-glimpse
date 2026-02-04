@@ -33,18 +33,17 @@ def load_user():
     session_id = request.cookies.get("session_id")
     if not session_id: return
     session = db.get_session(session_id)
-    if not session: return 
+    if not session: return
     if session.expires < int(time.time()):
         db.delete_user_expired_sessions(session.user_id)
         g.clear_session_cookie = True
-        return 
+        return
     user = db.get_user(session.user_id)
     if not user:
-        db.delete_user_expired_sessions(session.user_id)    
+        db.delete_user_expired_sessions(session.user_id)
         g.clear_session_cookie = True
         return
-    user_login, role, is_verified = user
-    g.user = auth.User(session_id, session.user_id, user_login, role, is_verified)
+    g.user = auth.SessionUser(session_id, session.user_id, *user)
 
 @app.after_request
 def clear_session_cookie(response: Response):
@@ -62,6 +61,7 @@ def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo_name = db.get_repo_name(repo_id)
     if not repo_name: abort(404)
+    if db.is_repo_owner_banned(repo_id): abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
         abort(404, "Repo not found on server")
@@ -87,6 +87,7 @@ def raw(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo_name = db.get_repo_name(repo_id)
     if not repo_name: abort(404)
+    if db.is_repo_owner_banned(repo_id): abort(404)
     repo_path = REPO_PATH / repo_id
     if not repo_path.is_dir():
         abort(404, "Repo not found on server")
@@ -112,6 +113,7 @@ def raw(repo_id: str, sub: str):
 
 @app.route("/repos/add", methods=["GET", "POST"])
 @auth.login_required()
+@auth.not_banned_required()
 @auth.verification_required()
 def repos_add():
     limits = db.get_user_limits(g.user.user_id)
@@ -226,6 +228,7 @@ def logout():
     return response
 
 @app.route("/dashboard")
+@auth.not_banned_required()
 @auth.login_required()
 def dashboard():
     repos = db.list_user_repos(g.user.user_id)
@@ -237,6 +240,7 @@ def dashboard():
 
 @app.route("/repos/details/<string:repo_id>")
 @auth.login_required()
+@auth.not_banned_required()
 @auth.verification_required()
 def repos_details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
@@ -266,6 +270,7 @@ def repos_details(repo_id: str):
 
 @app.route("/repos/build/<string:repo_id>", methods=["POST"])
 @auth.login_required()
+@auth.not_banned_required()
 @auth.verification_required()
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
@@ -285,6 +290,7 @@ def build(repo_id: str):
 
 @app.route("/repos/remove/<string:repo_id>", methods=["POST"])
 @auth.login_required()
+@auth.not_banned_required()
 @auth.verification_required()
 def repos_remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
@@ -302,6 +308,7 @@ def repos_remove(repo_id: str):
 
 @app.route("/user")
 @auth.login_required()
+@auth.not_banned_required()
 def user():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -320,6 +327,7 @@ def user():
 
 @app.route("/user/remove", methods=["GET", "POST"])
 @auth.login_required()
+@auth.not_banned_required()
 def user_remove():
     if request.method == "GET":
         return render_template("user_remove.html", user_login=g.user.login)
@@ -440,12 +448,14 @@ def admin_users():
     else: page = int(page)
     verified = request.args.get('verified', '')
     if not verified in ['1', '0', '']: verified = ''
+    banned = request.args.get('banned', '')
+    if not banned in ['1', '0', '']: banned = ''
     role = request.args.get('role', '')
     if not role in ['a', 'u', '']: role = ''
     user_login = request.args.get('login', '')
     email = request.args.get('email', '')
     # ---
-    users = db.list_users(offset=(page*10), login=user_login, email=email, is_verified=verified, role=role)
+    users = db.list_users(offset=(page*10), login=user_login, email=email, is_verified=verified, is_banned=banned, role=role)
     return render_template(
         "admin_users.html",
         users=utils.users_activity_to_readable(users),
@@ -454,6 +464,7 @@ def admin_users():
         login=user_login,
         email=email,
         verified=verified,
+        banned=banned,
         role=role
     )
 
@@ -471,18 +482,31 @@ def admin_users_id(user_id: int):
         email = db.get_user_email(user_id)
         build_count = db.count_user_builds(user_id)
         repos = db.list_user_repos(user_id)
+        banned_by = None
+        ban_reason = None
+        banned_at = None
+        if user.is_banned: 
+            ban = db.get_user_ban(user_id) 
+            if ban:
+                banned_by = ban.banned_by
+                banned_at = utils.timestamp_to_str(ban.banned_at)
+                ban_reason = ban.ban_reason
         return render_template(
             "admin_users_id.html", 
             user_id=user_id,
             user_login=user.login,
             is_verified=user.is_verified,
+            is_banned=user.is_banned,
             role=utils.code_to_role(user.role),
             email=email,
             build_count=build_count,
             repo_count=len(repos),
             repo_limit=limits.repo_limit,
             build_limit=limits.build_limit,
-            repos=repos
+            repos=repos,
+            banned_by=banned_by,
+            banned_at=banned_at,
+            ban_reason=ban_reason
         )
     # method == POST
     # Set verified
@@ -490,6 +514,7 @@ def admin_users_id(user_id: int):
     if set_verified:
         if user.login == "root": abort(400, "Cannot modify root user")
         if set_verified not in ["true", "false"]: abort(400, "Invalid `set_verified`")
+        if user.role == 'a': abort(400, "Cannot unverify admin user")
         set_verified = set_verified == "true"
         db.set_user_verified(user_id, set_verified)
         lg.log(
@@ -502,12 +527,37 @@ def admin_users_id(user_id: int):
     if set_role:
         if user.login == "root": abort(400, "Cannot modify root user")
         if set_role not in ["a", "u"]: abort(400, "Invalid `set_role`")
+        if not user.is_verified: abort(400, "Cannot promote unverified user")
+        if user.is_banned: abort(400, "Cannot promote banned user")
         db.set_user_role(user_id, set_role) # type: ignore -- type checked previously
         lg.log(
             lg.Event.ADMIN_USER_ROLE_CHANGE, 
             lg.Level.WARN, user_id=user_id, 
             extra={"admin_id": g.user.user_id, "value": set_role}
         )
+    # Set banned
+    set_banned = request.form.get("set_banned", "")
+    if set_banned:
+        if user.role == 'a': abort(400, "Cannot set banned for admin users")
+        if set_banned not in ["true", "false"]: abort(400, "Invalid `set_banned`")
+        if set_banned == "true":
+            if user.is_banned: abort(400, "User already banned")
+            ban_reason = request.form.get("ban_reason")
+            db.ban_user(user_id, g.user.user_id, ban_reason)
+            db.fail_all_user_pending_builds(user_id)
+            lg.log(
+                lg.Event.ADMIN_USER_BAN,
+                lg.Level.WARN, user_id=user_id,
+                extra={"admin_id": g.user.user_id, "reason": ban_reason}
+            )
+        else:
+            if not user.is_banned: abort(400, "User is not banned")
+            db.unban_user(user_id)
+            lg.log(
+                lg.Event.ADMIN_USER_UNBAN,
+                lg.Level.WARN, user_id=user_id,
+                extra={"admin_id": g.user.user_id}
+            )
     # Expire
     expire = request.form.get("expire", "")
     if expire == "true":
@@ -521,24 +571,25 @@ def admin_users_id(user_id: int):
 
 @app.route("/verify")
 @auth.login_required()
+@auth.not_banned_required()
 def verify():
     email = db.get_user_email(g.user.user_id)
     assert email is not None
     token = request.args.get("t")
     blocked = db.has_recent_token(g.user.user_id, 'e_ver')
-    if g.user.is_verified or not token: return render_template("verify.html", email=email, blocked=blocked)
+    if g.user.is_verified or not token: return render_template("verify.html", email=email, blocked=blocked, is_verified=g.user.is_verified)
     if g.user.login == "root": abort(400, "Cannot modify root user")
     is_valid = db.is_valid_token(token, g.user.user_id, 'e_ver')
     if not is_valid: 
         lg.log(lg.Event.AUTH_EMAIL_VERIFY_INVALID, lg.Level.WARN, user_id=g.user.user_id)
-        return render_template("verify.html", email=email, blocked=blocked)
+        return render_template("verify.html", email=email, blocked=blocked, is_verified=g.user.is_verified)
     db.delete_user_tokens(g.user.user_id, 'e_ver')
     db.set_user_verified(g.user.user_id, True)
-    g.user.is_verified = True
     lg.log(lg.Event.AUTH_EMAIL_VERIFY_COMPLETE, user_id=g.user.user_id)
-    return render_template("verify.html")
+    return render_template("verify.html", is_verified=True)
 
 @app.route("/verify/resend", methods=["POST"])
+@auth.not_banned_required()
 @auth.login_required()
 def verify_resend():
     if g.user.is_verified: return redirect("/dashboard")
@@ -546,7 +597,7 @@ def verify_resend():
     assert email is not None
     if db.has_recent_token(g.user.user_id, 'e_ver'):
         lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST_BLOCKED, lg.Level.WARN, user_id=g.user.user_id)
-        return render_template("verify.html", error_msg="Rate limit exceeded", email=email, blocked=True)
+        return render_template("verify.html", error_msg="Rate limit exceeded", email=email, blocked=True, is_verified=g.user.is_verified)
     token = db.add_token(g.user.user_id, 'e_ver')
     emails.send_email(
         emails.EmailIntent.EMAIL_VERIFICATION,
@@ -558,10 +609,11 @@ def verify_resend():
         expires=utils.timestamp_to_str(token.expires),
     )
     lg.log(lg.Event.AUTH_EMAIL_VERIFY_REQUEST, user_id=g.user.user_id)
-    return render_template("verify.html", email=email, blocked=True)
+    return render_template("verify.html", email=email, blocked=True, is_verified=g.user.is_verified)
 
 @app.route("/password/change", methods=["GET", "POST"])
 @auth.login_required()
+@auth.not_banned_required()
 @auth.verification_required()
 def password_change():
     if g.user.login == "root": abort(400, "Cannot modify root user")
@@ -651,3 +703,14 @@ def password_reset():
     db.delete_user_tokens(uid, 'p_rec')
     lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
     return redirect("/login")
+
+@auth.login_required()
+@app.route("/banned")
+def banned():
+    ban = db.get_user_ban(g.user.user_id)
+    if not ban: return redirect("/dashboard")
+    return render_template(
+        "banned.html",
+        ban_reason=ban.ban_reason,
+        banned_at=utils.timestamp_to_str(ban.banned_at)
+    )

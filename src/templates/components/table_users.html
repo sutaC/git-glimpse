@@ -6,16 +6,18 @@
         <th>Email</th>
         <th>Role</th>
         <th>Verified</th>
+        <th>Banned</th>
         <th>Created</th>
         <th>Repos</th>
     </tr>
-    {% for id, login, email, is_verified, role, created in users %}
+    {% for id, login, email, is_verified, is_banned, role, created in users %}
     <tr>
         <td>{{id}}</td>
         <td><a href="/admin/users/{{id|urlencode}}">{{login}}</a></td>
         <td>{{email or "-"}}</td>
         <td>{{role}}</td>
-        <td>{{'-' if not email else 'yes' if is_verified else 'no'}}</td>
+        <td>{{'yes' if is_verified else 'no'}}</td>
+        <td>{{'yes' if is_banned else 'no'}}</td>
         <td>{{created}}</td>
         <td><a href="/admin/repos?user={{login|urlencode}}">Repos</a></td>
     </tr>

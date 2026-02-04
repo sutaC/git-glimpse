@@ -67,7 +67,7 @@ def builds_activity_to_readable(builds: list[BuildActivity]):
 
 def users_activity_to_readable(users: list[UserActivity]):
     return [
-        (u.id, u.login, u.email, u.is_verified, code_to_role(u.role), timestamp_to_str(u.created))
+        (u.id, u.login, u.email, u.is_verified, u.is_banned, code_to_role(u.role), timestamp_to_str(u.created))
         for u in users
     ]
 

@@ -1,5 +1,6 @@
-from flask import abort, redirect, g, request
 from urllib.parse import urlparse, quote, quote_from_bytes
+from flask import abort, redirect, g, request
+from typing import NamedTuple
 from functools import wraps
 import bcrypt
 import time
@@ -7,20 +8,13 @@ import os
 
 _ENV = os.environ.get("ENV", "dev")
 
-class User():
-    def __init__(
-        self,
-        session_id: str,
-        user_id: int,
-        login: str,
-        role: str,
-        is_verified: bool
-    ) -> None:
-        self.session_id: str = session_id
-        self.user_id: int = user_id
-        self.login: str = login
-        self.role: str = role
-        self.is_verified: bool = is_verified
+class SessionUser(NamedTuple):
+    session_id: str
+    user_id: int
+    login: str
+    role: str
+    is_verified: bool
+    is_banned: bool
 
 WHITELIST_NEXT_URL_PREF = [
     "/dashboard",
@@ -86,6 +80,18 @@ def role_required(role: str):
                 abort(401)
             if g.user.role != role:
                 abort(403)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def not_banned_required():
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if g.user is None:
+                abort(401)
+            if g.user.is_banned:
+                return redirect("/banned")
             return f(*args, **kwargs)
         return wrapper
     return decorator

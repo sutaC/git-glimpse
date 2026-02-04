@@ -1,4 +1,4 @@
-from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserRecover
+from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover
 from lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -42,6 +42,14 @@ class Database:
                 `created` INTEGER NOT NULL DEFAULT (unixepoch())
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
+            -- user_bans
+            CREATE TABLE IF NOT EXISTS `user_bans` (
+                `id` INTEGER PRIMARY KEY,
+                `user_id` INTEGER UNIQUE REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `banned_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `banned_by` INTEGER REFERENCES `users`(`id`) ON DELETE SET NULL,
+                `ban_reason` TEXT
+            );
             -- sessions
             CREATE TABLE IF NOT EXISTS `sessions` (
                 `id` TEXT PRIMARY KEY,
@@ -220,6 +228,13 @@ class Database:
 
     def count_repos(self) -> int:
         return self._fetch_count('SELECT COUNT(*) FROM `repos`;')
+    
+    def is_repo_owner_banned(self, repo_id: str) -> bool:
+        return self._fetch_exists('''
+            SELECT 1 
+            FROM `user_bans`
+            WHERE `user_id` = (SELECT `user_id` FROM `repos` WHERE `id` = ?);
+        ''', (repo_id,))
 
     # --- users
     def add_user(self, login: str, email: str, password: str, role: RoleType = 'u') -> int:
@@ -236,6 +251,20 @@ class Database:
         self._cursor().execute(
             'UPDATE `users` SET `is_verified` = ? WHERE `id` = ?;',
             ((1 if verified else 0), user_id)
+        )
+        self._commit()
+
+    def unban_user(self, user_id: int) -> None:
+        self._cursor().execute(
+            'DELETE FROM `user_bans` WHERE `user_id` = ?;',
+            (user_id,)
+        )
+        self._commit()
+
+    def ban_user(self, user_id: int, admin_id: int, ban_reason: str | None) -> None:
+        self._cursor().execute(
+            'INSERT INTO `user_bans` (`user_id`, `banned_by`, `ban_reason`) VALUES (?, ?, ?);',
+            (user_id, admin_id, ban_reason)
         )
         self._commit()
 
@@ -271,7 +300,20 @@ class Database:
         return self._fetch_value('SELECT `login` FROM `users` WHERE `id` = ?;', (user_id,))
 
     def get_user(self, user_id: int) -> User | None:
-        return self._fetch_one('SELECT `login`, `role`, `is_verified` FROM `users` WHERE `id` = ?;', (user_id,), User)
+        return self._fetch_one('''
+            SELECT `u`.`login`, `u`.`role`, `u`.`is_verified`, 
+                    (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned` 
+            FROM `users` AS `u`
+            WHERE `u`.`id` = ?;
+        ''', (user_id,), User)
+
+    def get_user_ban(self, user_id: int) -> UserBan | None:
+        return self._fetch_one('''
+            SELECT `u`.`login` AS `banned_by_login`, `b`.`banned_at`, `b`.`ban_reason`
+            FROM `user_bans` AS `b`
+            LEFT JOIN `users` AS `u` ON `b`.`banned_by` = `u`.`id`
+            WHERE `b`.`user_id` = ?;
+        ''', (user_id,), UserBan)
 
     def get_user_by_email(self, email: str) -> UserRecover | None:
         if not email: return None
@@ -301,20 +343,27 @@ class Database:
         login: str = '',
         email: str = '',
         role: str = '',
-        is_verified: str = ''
+        is_verified: str = '',
+        is_banned: str = ''
     ) -> list[UserActivity]:
         if role not in ['a', 'u', '']: role = '' 
         if is_verified not in ['1', '0', '']: is_verified = '' 
-        return self._fetch_all('''
-            SELECT  `id`, `login`, `email`, `is_verified`, `role`, `created`
-            FROM `users`
-            WHERE `login` LIKE ?
-            AND `email` LIKE ?
-            AND `is_verified` LIKE ?
-            AND `role` LIKE ?
-            ORDER BY `created` DESC
+        if is_banned not in ['1', '0', '']: is_banned = '' 
+        return self._fetch_all(f'''
+            SELECT  `u`.`id`, `u`.`login`, `u`.`email`, `u`.`is_verified`, 
+                    (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned`, 
+                    `u`.`role`, `u`.`created`
+            FROM `users` AS `u`
+            WHERE `u`.`login` LIKE ?
+            AND `u`.`email` LIKE ?
+            AND `u`.`is_verified` LIKE ?
+            AND `u`.`role` LIKE ?
+            {f'AND {'NOT' if is_banned == '0' else ''} `is_banned`' if is_banned else ''} 
+            ORDER BY `u`.`created` DESC
             LIMIT ?, ?;
-        ''', (login or '%', email or '%', is_verified or '%', role or '%', offset, limit), row_type=UserActivity)
+        ''', (login or '%', email or '%', is_verified or '%', role or '%', offset, limit), 
+            row_type=UserActivity
+        )
 
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:
@@ -355,6 +404,12 @@ class Database:
         self._cursor().execute('''
             UPDATE `builds` SET `status` = ?, `size` = ?, `archive_size` = ?, `code` = ? WHERE `id` = ?;
         ''', (status, size, archive_size, code, build_id))
+        self._commit()
+
+    def fail_all_user_pending_builds(self, user_id: int) -> None:
+        self._cursor().execute('''
+            UPDATE `builds` SET `status` = 'f' WHERE `status` = 'p' AND `user_id` = ?;
+        ''', (user_id,))
         self._commit()
 
     def has_repo_active_build(self, repo_id: str) -> bool:

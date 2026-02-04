@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Banned | Git Glimpse</title>
+
+        <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='styles/global.css')}}"
+        />
+    </head>
+    <body>
+        <header>
+            <h1>Banned</h1>
+            <nav>
+                <a href="/">Home</a>
+            </nav>
+        </header>
+        <main>
+            <p></p>
+                Your account '{{g.user.login}}' have been banned from Git
+                Glimpse.
+            </p>
+            {% if ban_reason %}
+            <p>Reason: {{ban_reason}}</p>
+            {% endif %}
+            <p>Date: {{banned_at}}</p>
+            <p>If you believe this is a mistake, contact support.</p>
+            <p><a href="/logout">Logout</a></p>
+        </main>
+        <footer>
+            Made by:
+            <a
+                href="http://github.com/sutaC"
+                target="_blank"
+                rel="noopener noreferrer"
+                >sutaC</a
+            >
+        </footer>
+    </body>
+</html>

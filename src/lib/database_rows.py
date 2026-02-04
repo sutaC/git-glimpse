@@ -36,6 +36,12 @@ class User(NamedTuple):
     login: str 
     role: str 
     is_verified: bool
+    is_banned: bool
+
+class UserBan(NamedTuple):
+    banned_by: str | None
+    banned_at: int
+    ban_reason: str | None
 
 class UserAuth(NamedTuple):
     id: int
@@ -52,6 +58,7 @@ class UserActivity(NamedTuple):
     login: str
     email: str 
     is_verified: bool 
+    is_banned: bool
     role: RoleType
     created: int
 

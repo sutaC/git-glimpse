@@ -34,9 +34,15 @@
                     <form action="/admin/users" method="get" class="filters">
                         <label for="verified">Verified: </label>
                         <select name="verified" id="verified">
-                            <option value="" {{'selected' if status=="" else ''}}>any</option>
-                            <option value="1" {{'selected' if status=="1" else ''}}>yes</option>
-                            <option value="0" {{'selected' if status=="0" else ''}}>no</option>
+                            <option value="" {{'selected' if verified=="" else ''}}>any</option>
+                            <option value="1" {{'selected' if verified=="1" else ''}}>yes</option>
+                            <option value="0" {{'selected' if verified=="0" else ''}}>no</option>
+                        </select>
+                        <label for="banned">Banned: </label>
+                        <select name="banned" id="banned">
+                            <option value="" {{'selected' if banned=="" else ''}}>any</option>
+                            <option value="1" {{'selected' if banned=="1" else ''}}>yes</option>
+                            <option value="0" {{'selected' if banned=="0" else ''}}>no</option>
                         </select>
                         <label for="role">Role: </label>
                         <select name="role" id="role">

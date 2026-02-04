@@ -29,7 +29,10 @@
                         name="set_role"
                         value="{{'u' if role == 'admin' else 'a'}}"
                     />
-                    <button type="submit">
+                    <button
+                        type="submit"
+                        {{"disabled" if is_banned or not is_verified else ""}}
+                    >
                         {{'Demote to user' if role == 'admin' else 'Promote to admin'}}
                     </button>
                 </form>
@@ -38,19 +41,47 @@
             <div>
                 <p>Email: {{email or "-"}} {{"" if not email else "(verified)" if
                 is_verified else "(not verified)"}}</p>
-                {% if email %}
+                {% if email and role != 'admin' %}
                 <form action="/admin/users/{{user_id|urlencode}}" method="post">
                     <input
                         type="hidden"
                         name="set_verified"
                         value="{{'false' if is_verified else 'true'}}"
-                    />
-                    <button type="submit">
-                        {{'Unverify' if is_verified else 'Verify'}}
-                    </button>
+                        />
+                        <button type="submit">
+                            {{'Unverify' if is_verified else 'Verify'}}
+                        </button>
                 </form>
                 {% endif %}
             </div>
+            {% if role != 'admin' %}
+            <p>
+                <details>
+                    <summary>Banned:  {{"yes" if is_banned else "no"}}</summary>
+                    <div>
+                        {% if is_banned %}
+                        <p>Banned by: {% if banned_by %}{{banned_by}}{% else %}<i>Unknown</i>{% endif %}</p>
+                        <p>Banned at: {{banned_at}}</p>
+                        <p>Ban reason: {% if ban_reason %} '{{ban_reason}}' {% else %}<i>Not provided</i>{% endif %}</p>
+                        {% endif %}
+                        <form action="/admin/users/{{user_id|urlencode}}" method="post">
+                            <input
+                                type="hidden"
+                                name="set_banned"
+                                value="{{'false' if is_banned else 'true'}}"
+                            />
+                            {% if not is_banned %}
+                            <label for="ban_reason">Ban reason:</label>
+                            <textarea name="ban_reason" id="ban_reason"></textarea>
+                            {% endif %}
+                            <button type="submit">
+                                {{'Unban' if is_banned else 'Ban'}}
+                            </button>
+                        </form>
+                    </div>
+                </details>
+            </p>
+            {% endif %}
             <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
             <div>
                 <p>Build quota: {{build_count}}/{{build_limit}}</p>
