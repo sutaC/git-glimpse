@@ -68,10 +68,11 @@ def repos(repo_id: str, sub: str):
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
     except git.RepoError as e: abort(400, lg.USER_MESSAGES.get(e.code, ""))
+    # Respone
     # Makes list of path urls to all parent dirs
     rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
     parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
-    return render_template(
+    respone =  Response(render_template(
         "repos.html", 
         repo_name=repo_name,
         path_str=str(subpath).lstrip("."),
@@ -79,7 +80,23 @@ def repos(repo_id: str, sub: str):
         repo_id=repo_id,
         parent_chain=parentchain,
         is_text=utils.is_text(path)
-    )
+    ))
+    # Handles repos views
+    day = int(time.time() // 86400)
+    rv_key = f"rv_{repo_id}_{day}"
+    viewed = request.cookies.get(rv_key)
+    if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        if g.user: vhash = utils.viewer_hash(day, user_id=g.user.user_id)
+        else: vhash = utils.viewer_hash(day, ip=ip, ua=request.user_agent.string)
+        client = utils.detect_client(request.user_agent.string)
+        location = utils.detect_location(ip)
+        added = db.add_repo_view(repo_id, vhash, client, location)
+        if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
+        max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
+        # Save cookie to prevent mutliple rechecking 
+        respone.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
+    return respone
 
 @app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/raw/<string:repo_id>/<path:sub>")
@@ -166,6 +183,7 @@ def login():
     if not auth.check_password(send_password, user.password): 
         lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.INVALID_PASSWORD, user_id=user.id)
         return render_template("login.html", error_msg="Invalid login or password", login=send_login, next_url=next_url)
+    db.update_last_user_login(user.id)
     expires = auth.get_session_expiriation(user.role)
     session_id = db.add_session(user.id, expires)
     response = redirect(auth.safe_redirect_url(next_url))
@@ -228,14 +246,28 @@ def logout():
     return response
 
 @app.route("/dashboard")
-@auth.not_banned_required()
 @auth.login_required()
+@auth.not_banned_required()
 def dashboard():
     repos = db.list_user_repos(g.user.user_id)
+    return render_template("dashboard.html", repos=repos)
+
+@app.route("/views")
+@auth.login_required()
+@auth.not_banned_required()
+@auth.verification_required()
+def views():
+    page = request.args.get('page', '0')
+    if not page.isnumeric() or int(page) < 0: page = 0
+    else: page = int(page)
+    uviews = db.list_user_repo_views(g.user.user_id, offset=(page*10))
+    cviews = db.count_user_repo_views(g.user.user_id)
     return render_template(
-        "dashboard.html", 
-        repos=repos,
-        is_admin=(g.user.role == 'a')
+        "views.html",
+        page=page,
+        is_last=(len(uviews) < 10),
+        views=utils.views_to_readable(uviews),
+        cviews=cviews
     )
 
 @app.route("/repos/details/<string:repo_id>")
@@ -253,9 +285,9 @@ def repos_details(repo_id: str):
     limits = db.get_user_limits(repo.user_id)
     if not limits: abort(404, "Could not find user data")
     build_count = db.count_user_builds(g.user.user_id)
+    visits = db.count_repo_visits(repo_id)
     return render_template(
         "repos_details.html",
-        user_login=g.user.login,
         repo_id=repo_id,
         repo_name=repo.repo_name,
         url=repo.url,
@@ -265,7 +297,8 @@ def repos_details(repo_id: str):
         build_size=("?" if not build else utils.size_to_str(build.size)),
         build_code=(lg.USER_MESSAGES.get(build.code, "") if build and build.code else None),
         build_count=build_count,
-        build_limit=limits.build_limit
+        build_limit=limits.build_limit,
+        visits=visits
     )
 
 @app.route("/repos/build/<string:repo_id>", methods=["POST"])
@@ -480,6 +513,9 @@ def admin_users_id(user_id: int):
         limits = db.get_user_limits(user_id)
         if not limits: abort(404, "Could not find user data")
         email = db.get_user_email(user_id)
+        assert email
+        user_ts = db.get_user_ts(user_id)
+        assert user_ts
         build_count = db.count_user_builds(user_id)
         repos = db.list_user_repos(user_id)
         banned_by = None
@@ -506,7 +542,9 @@ def admin_users_id(user_id: int):
             repos=repos,
             banned_by=banned_by,
             banned_at=banned_at,
-            ban_reason=ban_reason
+            ban_reason=ban_reason,
+            created=utils.timestamp_to_str(user_ts.created),
+            last_login=utils.timestamp_to_str(user_ts.last_login)
         )
     # method == POST
     # Set verified

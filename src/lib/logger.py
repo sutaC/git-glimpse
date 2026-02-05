@@ -59,6 +59,8 @@ class Event:
     # Emails
     EMAIL_SEND = "email.send"
     EMAIL_SEND_FAILED = "email.send.failed"
+    # Repo views
+    REPO_VIEW_ADDED = "repo.view.added"
 
 class Code:
     LIMIT_MAX_SIZE = "LIMIT_MAX_SIZE"

@@ -62,6 +62,10 @@ class UserActivity(NamedTuple):
     role: RoleType
     created: int
 
+class UserTs(NamedTuple):
+    created: int
+    last_login: int
+
 class Limits(NamedTuple):
     build_limit: int
     repo_limit: int    
@@ -100,3 +104,10 @@ class BuildWork(NamedTuple):
 class TokenCreate(NamedTuple):
     id: str
     expires: int
+
+# --- views
+class Views(NamedTuple):
+    client: str
+    location: str | None
+    repo: str
+    timestamp: int

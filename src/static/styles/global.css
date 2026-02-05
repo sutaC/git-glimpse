@@ -90,3 +90,34 @@ footer {
 .error_msg:empty {
     visibility: hidden;
 }
+
+.table_display {
+    width: 100%;
+    border: 1px solid #000;
+    text-align: center;
+}
+
+.table_display :is(td, th) {
+    border: 1px solid #000;
+}
+
+.status_success {
+    color: green;
+}
+
+.status_pending {
+    color: grey;
+}
+
+.status_violation {
+    color: coral;
+}
+
+.status_failed {
+    color: crimson;
+}
+
+.pager > * {
+    display: inline-block;
+    margin-inline: 0.25rem;
+}

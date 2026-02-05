@@ -13,7 +13,7 @@
     <body>
         <header>
             <h1>
-                {{user_login}}/<a href="/repos/{{repo_id|urlencode}}"
+                {{g.user.login}}/<a href="/repos/{{repo_id|urlencode}}"
                     >{{repo_name}}</a
                 >
             </h1>
@@ -35,6 +35,7 @@
             </p>
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
+            <p>Visits in this month: {{visits}}</p>
             <form action="/repos/build/{{repo_id|urlencode}}" method="post">
                 <button 
                     type="submit" 

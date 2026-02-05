@@ -1,4 +1,4 @@
-from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover
+from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
 from lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -39,7 +39,8 @@ class Database:
                 `password` TEXT NOT NULL,
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
                 `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-                `created` INTEGER NOT NULL DEFAULT (unixepoch())
+                `created` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `last_login` INTERGER NON NULL DEFAULT(unixepoch())
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
             -- user_bans
@@ -83,6 +84,7 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS `idx_builds_user_time` ON builds(`user_id`, `timestamp` DESC);
             CREATE INDEX IF NOT EXISTS `idx_builds_repo_time` ON builds(`repo_id`, `timestamp` DESC);
+            -- tokens
             CREATE TABLE IF NOT EXISTS `tokens` (
                 `id` TEXT PRIMARY KEY,
                 `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -92,6 +94,20 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS `idx_tokens_user_type` ON tokens(`user_id`, `type`);
             CREATE INDEX IF NOT EXISTS `idx_tokens_type_expires` ON tokens(`type`, `expires`);
+            -- repo_views
+            CREATE TABLE IF NOT EXISTS `repo_views` (
+                `visitor_hash` TEXT NOT NULL,
+                `repo_id` TEXT NOT NULL REFERENCES `repos`(`id`) ON DELETE CASCADE,
+                `day` INTEGER NOT NULL CHECK (`day` > 0),
+                `first_view` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `location` TEXT CHECK (length(`location`) = 2),
+                `client` TEXT CHECK (`client` IN (
+                    'chrome', 'chrome_mobile', 'firefox', 'firefox_mobile',
+                    'safari', 'edge', 'opera', 'bot', 'unknown'
+                )), 
+                PRIMARY KEY (`repo_id`, `visitor_hash`, `day`)
+            );
+            CREATE INDEX IF NOT EXISTS `idx_repo_views_repo_day` ON `repo_views`(`repo_id`, `day`);
         ''')
         self._commit()
         cursor.execute("SELECT `id` FROM `users` WHERE `login` = 'root';")
@@ -315,6 +331,9 @@ class Database:
             WHERE `b`.`user_id` = ?;
         ''', (user_id,), UserBan)
 
+    def get_user_ts(self, user_id: int) -> UserTs | None:
+        return self._fetch_one('SELECT `created`, `last_login` FROM `users` WHERE `id` = ?;', (user_id,), UserTs)
+
     def get_user_by_email(self, email: str) -> UserRecover | None:
         if not email: return None
         return self._fetch_one('SELECT `id`, `login`, `is_verified` FROM `users` WHERE `email` = ?;', (email,), UserRecover)
@@ -364,6 +383,10 @@ class Database:
         ''', (login or '%', email or '%', is_verified or '%', role or '%', offset, limit), 
             row_type=UserActivity
         )
+
+    def update_last_user_login(self, user_id: int) -> None:
+        self._cursor().execute('UPDATE `users` SET `last_login` = unixepoch() WHERE `id` = ?;', (user_id,))
+        self._commit()
 
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:
@@ -568,3 +591,38 @@ class Database:
             AND `type` = ?
         ''', (user_id, type))
         self._commit()
+
+    # --- repo_views
+    def add_repo_view(self, repo_id: str, visitor_hash: str, client: str, location: str | None) -> bool:
+        day = int(time() // 86400)
+        c = self._cursor()
+        c.execute('''
+            INSERT OR IGNORE INTO `repo_views` 
+                (`visitor_hash`, `repo_id`, `day`, `location`, `client`)
+            VALUES (?, ?, ?, ?, ?);
+        ''', (visitor_hash, repo_id, day, location, client))
+        self._commit()
+        return bool(c.rowcount)
+
+    def count_repo_visits(self, repo_id: str) -> int:
+        return self._fetch_count('SELECT COUNT(*) FROM `repo_views` WHERE `repo_id` = ?;', (repo_id,))
+
+    def list_user_repo_views(self, user_id: int, offset: int = 0, limit: int = 10) -> list[Views]:
+        return self._fetch_all('''
+            SELECT `rv`.`client`, `rv`.`location`, `r`.`repo_name`, `rv`.`first_view`
+            FROM `users` AS `u`
+            JOIN `repos` AS `r` ON `u`.`id` = `r`.`user_id`
+            JOIN `repo_views` AS `rv` ON `r`.`id` = `rv`.`repo_id`
+            WHERE `u`.`id` = ?
+            ORDER BY `rv`.`first_view` DESC
+            LIMIT ?, ?;
+        ''', (user_id, offset, limit), Views)
+
+    def count_user_repo_views(self, user_id: int) -> int:
+        return self._fetch_count('''
+            SELECT COUNT(*)
+            FROM `users` AS `u`
+            JOIN `repos` AS `r` ON `u`.`id` = `r`.`user_id`
+            JOIN `repo_views` AS `rv` ON `r`.`id` = `rv`.`repo_id`
+            WHERE `u`.`id` = ?;
+        ''', (user_id,))

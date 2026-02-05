@@ -1,0 +1,20 @@
+{% macro table_views(views) %} {% if views.__len__() %}
+<table class="table_display">
+    <tr>
+        <th>Client</th>
+        <th>Location</th>
+        <th>Repositoy</th>
+        <th>Time</th>
+    </tr>
+    {% for client, location, repo, timestamp in views %}
+    <tr>
+        <td>{{client.capitalize()}}</td>
+        <td>{{location or "Unknown"}}</td>
+        <td>{{repo}}</td>
+        <td>{{timestamp}}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<small class="empty">Empty</small>
+{% endif %} {% endmacro %}

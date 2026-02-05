@@ -32,7 +32,7 @@ def cleanup_repos(db: Database) -> int:
     return count
 
 # --- extracted
-def cleanup_extracted():
+def cleanup_extracted() -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
@@ -48,21 +48,21 @@ def cleanup_extracted():
     return count
 
 # --- sessions
-def cleanup_sessions(db: Database):
+def cleanup_sessions(db: Database) -> int:
     c = db._cursor()
     c.execute("DELETE FROM `sessions` WHERE `expires` < unixepoch();")
     db._commit()
     return c.rowcount
 
 # --- tokens
-def cleanup_tokens(db: Database):
+def cleanup_tokens(db: Database) -> int:
     c = db._cursor()
     c.execute("DELETE FROM `tokens` WHERE `expires` < unixepoch();")
     db._commit()
     return c.rowcount
 
 # --- builds
-def cleanup_builds(db: Database):
+def cleanup_builds(db: Database) -> int:
     c = db._cursor()
     c.execute('''
             DELETE FROM `builds`
@@ -88,6 +88,14 @@ def cleanup_builds(db: Database):
     db._commit()
     return c.rowcount
 
+# --- repo views
+def cleanup_repo_views(db: Database) -> int:
+    c = db._cursor()
+    cday = int(time() / 86400)
+    c.execute('DELETE FROM `repo_views` WHERE `day` < ? - 30;', (cday,))
+    db._commit()
+    return c.rowcount
+
 # Save data
 class CleanupData(NamedTuple):
     satarted: str
@@ -97,6 +105,7 @@ class CleanupData(NamedTuple):
     cl_builds: int
     cl_session: int
     cl_tokens: int
+    cl_repo_views: int
 
 def get_last_cleanup() -> CleanupData | None:
     if not CLEANUP_PATH.exists(): return None
@@ -117,6 +126,7 @@ def main():
     cl_builds = cleanup_builds(db)
     cl_sessions = cleanup_sessions(db)
     cl_tokens = cleanup_tokens(db)
+    cl_repo_views = cleanup_repo_views(db)
     db._close()
     ts_end = time()
     duration = int((ts_end-ts_start)*1000)
@@ -130,7 +140,8 @@ def main():
                 "cl_extracted": cl_extracted,
                 "cl_builds": cl_builds,
                 "cl_sessions": cl_sessions,
-                "cl_tokens": cl_tokens
+                "cl_tokens": cl_tokens,
+                "cl_repo_views": cl_repo_views
             }, cf)
     except: pass
     lg.log(
@@ -141,10 +152,10 @@ def main():
             "cl_extracted": cl_extracted,
             "cl_builds": cl_builds,
             "cl_sessions": cl_sessions,
-            "cl_tokens": cl_tokens
+            "cl_tokens": cl_tokens,
+            "cl_repo_views": cl_repo_views
         }
     )
-
 
 if __name__ == "__main__":
     main()

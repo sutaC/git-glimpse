@@ -90,6 +90,8 @@
                     <button type="submit" {{'' if build_count else 'disabled'}}>Clear build quota</button>
                 </form>
             </div>
+            <p>Last login at: {{last_login}}</p>
+            <p>Created at: {{created}}</p>
             <p>
                 <a href="/admin/repos?user={{user_login|urlencode}}"
                     >View user repos</a

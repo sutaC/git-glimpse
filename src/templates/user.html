@@ -26,6 +26,8 @@
             <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
             <p>Build quota: {{build_count}}/{{build_limit}}</p>
             <hr />
+            <p><a href="/logout">Logout</a></p>
+            <hr />
             {% if g.user.is_verified and g.user.login != "root" %}
             <p><a href="/password/change">Change password</a></p>
             {% endif %}

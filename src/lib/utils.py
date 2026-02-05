@@ -1,6 +1,8 @@
-from lib.database_rows import BuildActivity, RepoActivity, UserActivity
+from lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
+import requests
 import re
 
 GITHUB_URL_REGEX = re.compile(r'^(?:https:\/\/github\.com\/|git@github\.com:)[\w\-]+\/[\w\-]+(?:\.git)?$')
@@ -76,3 +78,41 @@ def repos_activity_to_readable(repos: list[RepoActivity]):
         (r.id, r.user_id, r.user_login, r.url, r.has_key, timestamp_to_str(r.created), code_to_status(r.status), size_to_str(r.size), timestamp_to_str(r.timestamp))
         for r in repos
     ]
+
+def views_to_readable(views: list[Views]):
+    return [
+        (v.client, v.location, v.repo, timestamp_to_str(v.timestamp))
+        for v in views
+    ]
+
+def detect_client(ua: str) -> str:
+    ua = ua.lower()
+    if "bot" in ua or "spider" in ua or "crawl" in ua:
+        return "bot"
+    if "firefox" in ua:
+        return "firefox_mobile" if "mobile" in ua else "firefox"
+    if "edg" in ua:
+        return "edge"
+    if "opr" in ua or "opera" in ua:
+        return "opera"
+    if "chrome" in ua:
+        return "chrome_mobile" if "mobile" in ua else "chrome"
+    if "safari" in ua:
+        return "safari"
+    return "unknown"
+
+def detect_location(ip: str) -> str | None:
+    if ip == "127.0.0.1": return None
+    try:
+        r  = requests.get(f"https://ipapi.co/{ip}/country", timeout=1)
+        if r.status_code == 200:
+            code = r.text.strip()
+            return code if len(code) == 2 else None
+    except Exception:
+        pass
+    return None
+
+def viewer_hash(day: int, user_id: int | None = None, ip: str | None = None, ua: str | None = None) -> str:
+    assert user_id or (ip and ua)
+    if user_id: return sha256(f"u:{user_id}:{day}".encode()).hexdigest()
+    return sha256(f"a:{ip}:{ua}:{day}".encode()).hexdigest()
