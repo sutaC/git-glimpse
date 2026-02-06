@@ -69,13 +69,16 @@ def builds_activity_to_readable(builds: list[BuildActivity]):
 
 def users_activity_to_readable(users: list[UserActivity]):
     return [
-        (u.id, u.login, u.email, u.is_verified, u.is_banned, code_to_role(u.role), timestamp_to_str(u.created))
+        (u.id, u.login, u.email, u.is_verified, u.is_banned, code_to_role(u.role), 
+         timestamp_to_str(u.created), u.inactive)
         for u in users
     ]
 
 def repos_activity_to_readable(repos: list[RepoActivity]):
     return [
-        (r.id, r.user_id, r.user_login, r.url, r.has_key, timestamp_to_str(r.created), code_to_status(r.status), size_to_str(r.size), timestamp_to_str(r.timestamp))
+        (r.id, r.user_id, r.user_login, r.url, r.has_key, 
+         timestamp_to_str(r.created), code_to_status(r.status), size_to_str(r.size), 
+         timestamp_to_str(r.timestamp), r.hidden)
         for r in repos
     ]
 

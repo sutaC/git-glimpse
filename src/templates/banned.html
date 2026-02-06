@@ -26,7 +26,7 @@
             <p>Reason: {{ban_reason}}</p>
             {% endif %}
             <p>Date: {{banned_at}}</p>
-            <p>If you believe this is a mistake, contact support.</p>
+            <p>If you believe this is a mistake, {% if contact %}<a href="mailto:{{contact}}">contact support</a>{% else %}contact support{% endif %}.</p>
             <p><a href="/logout">Logout</a></p>
         </main>
         <footer>

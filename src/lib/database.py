@@ -1,4 +1,4 @@
-from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
+from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
 from lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -40,7 +40,8 @@ class Database:
                 `is_verified` INTEGER NOT NULL DEFAULT 0 CHECK (`is_verified` IN (0, 1)),
                 `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
                 `created` INTEGER NOT NULL DEFAULT (unixepoch()),
-                `last_login` INTERGER NON NULL DEFAULT(unixepoch())
+                `last_login` INTERGER NON NULL DEFAULT(unixepoch()),
+                `inactive` INTEGER NOT NULL DEFAULT 0 CHECK (`inactive` IN (0, 1))
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
             -- user_bans
@@ -68,6 +69,7 @@ class Database:
                 `repo_name` TEXT NOT NULL,
                 `ssh_key` TEXT,
                 `created` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `hidden` INTEGER NOT NULL DEFAULT 0 CHECK (`hidden` IN (0, 1)),
                 UNIQUE(`user_id`, `url`)
             );
             CREATE INDEX IF NOT EXISTS `idx_repos_user_id` ON `repos`(`user_id`);
@@ -195,15 +197,17 @@ class Database:
             user: str='',
             repo: str = '',
             url: str = '',
-            key: str = ''
+            key: str = '',
+            hidden: str = ''
         ) -> list[RepoActivity]:
         if offset < 0: offset = 0
         if limit < 0: limit = 0
         if not is_vaild_status(status): status = ''
         if not key in ['1', '0', '']: key = ''
+        if not hidden in ['1', '0', '']: hidden = ''
         return self._fetch_all('''
             SELECT  `r`.`id`, `u`.`id`, `u`.`login`, `r`.`url`, (`r`.`ssh_key` IS NOT NULL) AS `has_key`, `r`.`created`,
-                    `lb`.`status`, `lb`.`size`, `lb`.`timestamp`           
+                    `lb`.`status`, `lb`.`size`, `lb`.`timestamp`, `r`.`hidden`         
             FROM `repos` AS `r`
             JOIN `users` AS `u` ON `r`.`user_id` = `u`.`id`
             LEFT JOIN (
@@ -216,12 +220,15 @@ class Database:
             AND `u`.`login` LIKE ?
             AND `r`.`url` LIKE ?
             AND `has_key` LIKE ?
+            AND `hidden` LIKE ?
             ORDER BY `lb`.`timestamp` DESC
             LIMIT ?, ?;
-        ''', (repo or '%', status or '%', user or '%', url or '%', key or '%', offset, limit), row_type=RepoActivity)
+        ''', (repo or '%', status or '%', user or '%', url or '%', key or '%', hidden or '%', offset, limit), 
+        row_type=RepoActivity
+    )
 
-    def get_repo_name(self, repo_id: str) -> str | None:
-        return self._fetch_value('SELECT `repo_name` FROM `repos` WHERE `id` = ?;', (repo_id,))
+    def get_repo_select(self, repo_id: str) -> RepoSelect | None:
+        return self._fetch_one('SELECT `repo_name`, `hidden` FROM `repos` WHERE `id` = ?;', (repo_id,), RepoSelect)
     
     def get_repo_user_id(self, repo_id: str) -> int | None:
         return self._fetch_value('SELECT `user_id` FROM `repos` WHERE `id` = ?;', (repo_id,))
@@ -230,8 +237,12 @@ class Database:
         return self._fetch_one('SELECT `user_id`, `url`, `ssh_key` FROM `repos` WHERE `id` = ?;', (repo_id,), RepoClone)
     
     def get_repo(self, repo_id: str) -> Repo | None:
-        return self._fetch_one('SELECT `repo_name`, `url`, `user_id`, `created` FROM `repos` WHERE `id` = ?;', (repo_id,), Repo)
+        return self._fetch_one('SELECT `repo_name`, `url`, `user_id`, `created`, `hidden` FROM `repos` WHERE `id` = ?;', (repo_id,), Repo)
     
+    def set_repo_hidden(self, repo_id: str, hidden: bool) -> None:
+        self._cursor().execute('UPDATE `repos` SET `hidden` = ? WHERE `id` = ?;', ((1 if hidden else 0), repo_id))
+        self._commit()
+
     def is_repo_url_for_user(self, url: str, user_id: int) -> bool:
         return self._fetch_exists('SELECT 1 FROM `repos` WHERE `url` = ? AND `user_id` = ?;', (url, user_id))
 
@@ -317,8 +328,8 @@ class Database:
 
     def get_user(self, user_id: int) -> User | None:
         return self._fetch_one('''
-            SELECT `u`.`login`, `u`.`role`, `u`.`is_verified`, 
-                    (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned` 
+            SELECT `u`.`login`, `u`.`role`, `u`.`is_verified`, `u`.`inactive`,
+                    (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned`
             FROM `users` AS `u`
             WHERE `u`.`id` = ?;
         ''', (user_id,), User)
@@ -363,29 +374,32 @@ class Database:
         email: str = '',
         role: str = '',
         is_verified: str = '',
-        is_banned: str = ''
+        is_banned: str = '',
+        inactive: str = ''
     ) -> list[UserActivity]:
         if role not in ['a', 'u', '']: role = '' 
         if is_verified not in ['1', '0', '']: is_verified = '' 
         if is_banned not in ['1', '0', '']: is_banned = '' 
+        if inactive not in ['1', '0', '']: inactive = '' 
         return self._fetch_all(f'''
             SELECT  `u`.`id`, `u`.`login`, `u`.`email`, `u`.`is_verified`, 
                     (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned`, 
-                    `u`.`role`, `u`.`created`
+                    `u`.`role`, `u`.`created`, `u`.`inactive`
             FROM `users` AS `u`
             WHERE `u`.`login` LIKE ?
             AND `u`.`email` LIKE ?
             AND `u`.`is_verified` LIKE ?
             AND `u`.`role` LIKE ?
+            AND `u`.`inactive` LIKE ?
             {f'AND {'NOT' if is_banned == '0' else ''} `is_banned`' if is_banned else ''} 
             ORDER BY `u`.`created` DESC
             LIMIT ?, ?;
-        ''', (login or '%', email or '%', is_verified or '%', role or '%', offset, limit), 
+        ''', (login or '%', email or '%', is_verified or '%', role or '%', inactive or '%', offset, limit), 
             row_type=UserActivity
         )
 
     def update_last_user_login(self, user_id: int) -> None:
-        self._cursor().execute('UPDATE `users` SET `last_login` = unixepoch() WHERE `id` = ?;', (user_id,))
+        self._cursor().execute('UPDATE `users` SET `last_login` = unixepoch(), `inactive` = 0 WHERE `id` = ?;', (user_id,))
         self._commit()
 
     # --- sessions

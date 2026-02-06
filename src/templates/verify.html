@@ -18,7 +18,7 @@
             </nav>
         </header>
         <main>
-            {% if g.user.is_verified %}
+            {% if is_verified %}
             <p class="verification_success">Your account is verified!</p>
             {% else %}
             <p>Verify your account, check your email: {{email}}</p>

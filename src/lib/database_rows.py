@@ -10,6 +10,7 @@ class Repo(NamedTuple):
     url: str 
     user_id: int 
     created: int
+    hidden: bool
 
 class RepoRow(NamedTuple):
     id: str
@@ -30,12 +31,18 @@ class RepoActivity(NamedTuple):
     status: BuildStatus
     size: int
     timestamp: int
+    hidden: bool
+
+class RepoSelect(NamedTuple):
+    name: str
+    hidden: bool
 
 # --- users
 class User(NamedTuple):
     login: str 
     role: str 
     is_verified: bool
+    inactive: bool
     is_banned: bool
 
 class UserBan(NamedTuple):
@@ -61,6 +68,7 @@ class UserActivity(NamedTuple):
     is_banned: bool
     role: RoleType
     created: int
+    inactive: bool
 
 class UserTs(NamedTuple):
     created: int

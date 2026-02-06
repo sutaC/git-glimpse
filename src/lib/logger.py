@@ -27,6 +27,7 @@ class Event:
     BUILD_VIOLATION = "build.violation"
     # Cleanup
     CLEANUP_STARTED = "cleanup.started"
+    CLEANUP_FAILED = "cleanup.failed"
     CLEANUP_FINISHED = "cleanup.finished"
     # Admin
     ADMIN_USER_ROLE_CHANGE = "admin.user.role.change"

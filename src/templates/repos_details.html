@@ -36,6 +36,9 @@
             <p>Built at: {{build_timestamp}}</p>
             <p>Size: {{build_size}}</p>
             <p>Visits in this month: {{visits}}</p>
+            {% if hidden %}
+            <p class="status_failed">This repo is currently hidden, to make it visible schedule a build</p>
+            {% endif %}
             <form action="/repos/build/{{repo_id|urlencode}}" method="post">
                 <button 
                     type="submit" 

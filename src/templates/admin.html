@@ -51,6 +51,14 @@
                     <p>Removed sessions: {{cleanup_data.cl_session}}</p>
                     <p>Removed tokens: {{cleanup_data.cl_tokens}}</p>
                     <p>Removed repo views: {{cleanup_data.cl_repo_views}}</p>
+                    <p>
+                        Users flaggled inactive:
+                        {{cleanup_data.cl_flag_inactive_users}}
+                    </p>
+                    <p>
+                        Removed inactive users repo artifacts:
+                        {{cleanup_data.cl_inactive_users_repos}}
+                    </p>
                     {% else %}
                     <small>No cleanup data was found</small>
                     {% endif %}

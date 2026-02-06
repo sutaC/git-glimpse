@@ -43,6 +43,12 @@
                             <option value="1" {{'selected' if key=="1" else ''}}>yes</option>
                             <option value="0" {{'selected' if key=="0" else ''}}>no</option>
                         </select>
+                        <label for="hidden">Hidden: </label>
+                        <select name="hidden" id="hidden">
+                            <option value="" {{'selected' if key=="" else ''}}>any</option>
+                            <option value="1" {{'selected' if key=="1" else ''}}>yes</option>
+                            <option value="0" {{'selected' if key=="0" else ''}}>no</option>
+                        </select>
                         <label for="repo">Repo id: </label>
                         <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
                         <label for="user">Owner: </label>

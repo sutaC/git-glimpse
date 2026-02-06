@@ -7,10 +7,12 @@
         <th>Role</th>
         <th>Verified</th>
         <th>Banned</th>
+        <th>Inactive</th>
         <th>Created</th>
         <th>Repos</th>
     </tr>
-    {% for id, login, email, is_verified, is_banned, role, created in users %}
+    {% for id, login, email, is_verified, is_banned, role, created, inactive in
+    users %}
     <tr>
         <td>{{id}}</td>
         <td><a href="/admin/users/{{id|urlencode}}">{{login}}</a></td>
@@ -18,6 +20,7 @@
         <td>{{role}}</td>
         <td>{{'yes' if is_verified else 'no'}}</td>
         <td>{{'yes' if is_banned else 'no'}}</td>
+        <td>{{'yes' if inactive else 'no'}}</td>
         <td>{{created}}</td>
         <td><a href="/admin/repos?user={{login|urlencode}}">Repos</a></td>
     </tr>

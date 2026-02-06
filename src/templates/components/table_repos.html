@@ -5,6 +5,7 @@
         <th>Owner</th>
         <th>Url</th>
         <th>Has Key</th>
+        <th>Hidden</th>
         <th>Created</th>
         <th>LB Status</th>
         <th>LB Size</th>
@@ -12,12 +13,13 @@
         <th>Builds</th>
     </tr>
     {% for id, user_id, user_login, url, has_key, created, status, size,
-    timestamp in repos %}
+    timestamp, hidden in repos %}
     <tr>
         <td>{{id}}</td>
         <td><a href="/admin/users/{{user_id|urlencode}}">{{user_login}}</a></td>
         <td>{{url}}</td>
         <td>{{'yes' if has_key else 'no'}}</td>
+        <td>{{'yes' if hidden else 'no' }}</td>
         <td>{{created}}</td>
         <td class="status_{{status}}">{{status}}</td>
         <td>{{size}}</td>

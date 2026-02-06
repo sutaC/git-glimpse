@@ -42,6 +42,7 @@ def main():
         except git.RepoError as re:
             db.update_build(build.id, re.type, code=re.code)
             git.remove_protected_dir(path)
+            db.set_repo_hidden(build.repo_id, True)
             ts_end = time()
             if re.type == 'f': 
                 lg.log(
@@ -60,6 +61,7 @@ def main():
                 )
                 continue
         db.update_build(build.id, 's', repo_size, archive_size)
+        db.set_repo_hidden(build.repo_id, False)
         ts_end = time()
         lg.log(
             lg.Event.BUILD_FINISHED, 

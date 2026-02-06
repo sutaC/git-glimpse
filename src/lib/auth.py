@@ -14,6 +14,7 @@ class SessionUser(NamedTuple):
     login: str
     role: str
     is_verified: bool
+    inactive: bool
     is_banned: bool
 
 WHITELIST_NEXT_URL_PREF = [

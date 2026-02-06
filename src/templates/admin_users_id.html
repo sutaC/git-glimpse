@@ -54,6 +54,7 @@
                 </form>
                 {% endif %}
             </div>
+            <p>Inactive: {{'yes' if inactive else 'no'}}</p>
             {% if role != 'admin' %}
             <p>
                 <details>

@@ -15,6 +15,8 @@ import os
 
 load_dotenv()
 
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL")
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
@@ -59,22 +61,21 @@ def root():
 @app.route("/repos/<string:repo_id>/<path:sub>")
 def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
-    repo_name = db.get_repo_name(repo_id)
-    if not repo_name: abort(404)
+    repo = db.get_repo_select(repo_id)
+    if not repo or repo.hidden: abort(404)
     if db.is_repo_owner_banned(repo_id): abort(404)
     repo_path = REPO_PATH / repo_id
-    if not repo_path.is_dir():
-        abort(404, "Repo not found on server")
+    if not repo_path.is_dir(): abort(404)
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
-    except git.RepoError as e: abort(400, lg.USER_MESSAGES.get(e.code, ""))
+    except Exception: abort(404)
     # Respone
     # Makes list of path urls to all parent dirs
     rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
     parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
     respone =  Response(render_template(
         "repos.html", 
-        repo_name=repo_name,
+        repo_name=repo.name,
         path_str=str(subpath).lstrip("."),
         path=path,
         repo_id=repo_id,
@@ -102,15 +103,14 @@ def repos(repo_id: str, sub: str):
 @app.route("/raw/<string:repo_id>/<path:sub>")
 def raw(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
-    repo_name = db.get_repo_name(repo_id)
-    if not repo_name: abort(404)
+    repo = db.get_repo_select(repo_id)
+    if not repo or repo.hidden: abort(404)
     if db.is_repo_owner_banned(repo_id): abort(404)
     repo_path = REPO_PATH / repo_id
-    if not repo_path.is_dir():
-        abort(404, "Repo not found on server")
+    if not repo_path.is_dir(): abort(404)
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
-    except git.RepoError as e: abort(400, lg.USER_MESSAGES.get(e.code, ""))
+    except Exception: abort(404)
     if path.is_dir():
         if sub: return redirect(f"/repos/{repo_id}/{sub}", 303)
         # Downloading repo archive
@@ -120,7 +120,7 @@ def raw(repo_id: str, sub: str):
             return send_file(
                 zip_path,
                 mimetype="application/zip",
-                download_name=f"{repo_name}.zip",
+                download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
         archive_path = repo_path / "build.tar.zst"
@@ -291,6 +291,7 @@ def repos_details(repo_id: str):
         repo_id=repo_id,
         repo_name=repo.repo_name,
         url=repo.url,
+        hidden=repo.hidden,
         created=utils.timestamp_to_str(repo.created),
         build_status=("?" if not build else utils.code_to_status(build.status)),
         build_timestamp=("?" if not build else utils.timestamp_to_str(build.timestamp)),
@@ -412,8 +413,7 @@ def admin():
 @auth.role_required('a')
 def admin_cleanup():
     lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
-    try: cworker.main()
-    except: abort(500, "Cleanup failed")
+    cworker.main()
     return redirect("/admin")
 
 @app.route("/admin/repos")
@@ -428,11 +428,13 @@ def admin_repos():
     if not utils.is_vaild_status(status): status = ''
     key = request.args.get('key', '')
     if not key in ['1', '0', '']: key = ''
+    hidden = request.args.get('hidden', '')
+    if not hidden in ['1', '0', '']: hidden = ''
     user = request.args.get('user', '')
     repo = request.args.get('repo', '')
     url = request.args.get('url', '')
     # ---
-    repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key)
+    repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key, hidden=hidden)
     return render_template(
         "admin_repos.html",
         repos=utils.repos_activity_to_readable(repos),
@@ -442,7 +444,8 @@ def admin_repos():
         status=status,
         user=user,
         url=url,
-        key=key
+        key=key,
+        hidden=hidden
     )
 
 @app.route("/admin/builds")
@@ -485,10 +488,20 @@ def admin_users():
     if not banned in ['1', '0', '']: banned = ''
     role = request.args.get('role', '')
     if not role in ['a', 'u', '']: role = ''
+    inactive = request.args.get('inactive', '')
+    if not inactive in ['1', '0', '']: inactive = ''
     user_login = request.args.get('login', '')
     email = request.args.get('email', '')
     # ---
-    users = db.list_users(offset=(page*10), login=user_login, email=email, is_verified=verified, is_banned=banned, role=role)
+    users = db.list_users(
+        offset=(page*10), 
+        login=user_login, 
+        email=email, 
+        is_verified=verified, 
+        is_banned=banned, 
+        role=role,
+        inactive=inactive
+    )
     return render_template(
         "admin_users.html",
         users=utils.users_activity_to_readable(users),
@@ -498,7 +511,8 @@ def admin_users():
         email=email,
         verified=verified,
         banned=banned,
-        role=role
+        role=role,
+        inactive=inactive
     )
 
 @app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
@@ -513,7 +527,6 @@ def admin_users_id(user_id: int):
         limits = db.get_user_limits(user_id)
         if not limits: abort(404, "Could not find user data")
         email = db.get_user_email(user_id)
-        assert email
         user_ts = db.get_user_ts(user_id)
         assert user_ts
         build_count = db.count_user_builds(user_id)
@@ -532,6 +545,7 @@ def admin_users_id(user_id: int):
             user_id=user_id,
             user_login=user.login,
             is_verified=user.is_verified,
+            inactive=user.inactive,
             is_banned=user.is_banned,
             role=utils.code_to_role(user.role),
             email=email,
@@ -611,12 +625,12 @@ def admin_users_id(user_id: int):
 @auth.login_required()
 @auth.not_banned_required()
 def verify():
+    if g.user.login == "root": abort(400, "Cannot modify root user")
     email = db.get_user_email(g.user.user_id)
     assert email is not None
     token = request.args.get("t")
     blocked = db.has_recent_token(g.user.user_id, 'e_ver')
     if g.user.is_verified or not token: return render_template("verify.html", email=email, blocked=blocked, is_verified=g.user.is_verified)
-    if g.user.login == "root": abort(400, "Cannot modify root user")
     is_valid = db.is_valid_token(token, g.user.user_id, 'e_ver')
     if not is_valid: 
         lg.log(lg.Event.AUTH_EMAIL_VERIFY_INVALID, lg.Level.WARN, user_id=g.user.user_id)
@@ -750,5 +764,6 @@ def banned():
     return render_template(
         "banned.html",
         ban_reason=ban.ban_reason,
-        banned_at=utils.timestamp_to_str(ban.banned_at)
+        banned_at=utils.timestamp_to_str(ban.banned_at),
+        contact=CONTACT_EMAIL
     )

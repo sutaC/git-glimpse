@@ -216,11 +216,9 @@ def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
         extract_repo(repo_path)
         lg.log(lg.Event.REPO_EXTRACTED, repo_id=repo_path.name)
     path = (ext_path / sub_path).resolve()
-    if not path.is_relative_to(ext_path):
-        raise RepoError('f', lg.Code.REPO_NOT_FOUND)
-    if path.is_symlink() or any(p.is_symlink() for p in path.parents):
-        raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
-    if not path.exists(): raise RepoError('f', lg.Code.REPO_NOT_FOUND)
+    if not path.is_relative_to(ext_path): raise RuntimeError("Invalid path")
+    if path.is_symlink() or any(p.is_symlink() for p in path.parents): raise RuntimeError("Invalid path")
+    if not path.exists(): raise RuntimeError("Invalid path")
     return path
 
 def zip_repo(ext_path: Path, zip_path: Path) -> None:
