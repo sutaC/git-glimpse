@@ -7,6 +7,7 @@ import os
 
 _ENV = os.environ.get("ENV", "dev")
 _DOMAIN = os.environ.get("DOMAIN", "")
+_CONTACT = os.environ.get("CONTACT_EMAIL", "")
 SMTP_HOST = os.environ["SMTP_HOST"]                 # REQUIRED
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))   # REQUIRED
 SMTP_USER = os.environ["SMTP_USER"]                 # REQUIRED
@@ -19,6 +20,8 @@ class EmailIntent:
     PASSWORD_RECOVERY = "intent.password.recovery"
     INACTIVE_ACCOUNT = "intent.inactive.account"
     REPO_REMOVAL = "intent.repo.removal"
+    ACCOUNT_BANNED = "intent.account.banned"
+    ACCOUNT_UNBANNED = "intent.account.ubbanned"
 
 @dataclass(frozen=True)
 class EmailIntentSpec:
@@ -28,22 +31,32 @@ class EmailIntentSpec:
 
 INTENTS: dict[str, EmailIntentSpec] = {
     EmailIntent.EMAIL_VERIFICATION: EmailIntentSpec(
-        subject="Git Glimpse - Email verification",
+        subject="Verify your email address - Git Glimpse",
         requires_verified=False,
         required_fields=frozenset({"user", "token", "expires"})
     ),
     EmailIntent.PASSWORD_RECOVERY: EmailIntentSpec(
-        subject="Git Glimpse - Password recovery",
+        subject="Reset your Git Glimpse password",
         requires_verified=True,
         required_fields=frozenset({"user", "token", "expires"})
     ),
     EmailIntent.INACTIVE_ACCOUNT: EmailIntentSpec(
-        subject="Git Glimpse - Inactive account",
+        subject="Your Git Glimpse account has been inactive",
         requires_verified=True,
         required_fields=frozenset({"user", "last_login"})
     ),
     EmailIntent.REPO_REMOVAL: EmailIntentSpec(
-        subject="Git Glimpse - Removing repositories",
+        subject="Your Git Glimpse repositories were removed due to inactivity",
+        requires_verified=True,
+        required_fields=frozenset({"user"})
+    ),
+    EmailIntent.ACCOUNT_BANNED: EmailIntentSpec(
+        subject="Your Git Glimpse account has been banned",
+        requires_verified=True,
+        required_fields=frozenset({"user", "reason"})
+    ),
+    EmailIntent.ACCOUNT_UNBANNED: EmailIntentSpec(
+        subject="Access restored to your Git Glimpse account",
         requires_verified=True,
         required_fields=frozenset({"user"})
     )
@@ -54,52 +67,105 @@ def _get_base_url() -> str:
     if _ENV == "prod": return f"https://{_DOMAIN}"
     return "http://127.0.0.1:5000"
 
+def _email_footer() -> str:
+    return f'''
+—
+Git Glimpse
+{_get_base_url()}
+'''
+
 def tpl_email_verification(*, user: str, token: str, expires: str) -> str:
     return f'''
-        Hello {escape(user)}!
+Hello {escape(user)},
 
-        This is verification email for Git Glimpse. 
-        To verify your email, open this link:
-        {escape(_get_base_url()+f"/verify?t={token}")}
-        This link will expire on {escape(expires)}.
-    '''
+Thanks for signing up for Git Glimpse.
+
+To verify your email address, open the link below:
+{escape(_get_base_url() + f"/verify?t={token}")}
+
+This link expires on {escape(expires)}.
+
+If you didn’t create this account, you can safely ignore this email.
+{_email_footer()}
+'''.strip()
 
 def tpl_password_recovery(*, user: str,  token: str, expires: str) -> str:
     return f'''
-        Hello {escape(user)}!
+Hello {escape(user)},
 
-        This is password recovery email for Git Glimpse. 
-        To reset your password, open this link:
-        {escape(_get_base_url()+f"/password/reset?t={token}")}
-        This link will expire on {escape(expires)}.
-    '''
+We received a request to reset your Git Glimpse password.
+
+To choose a new password, open the link below:
+{escape(_get_base_url() + f"/password/reset?t={token}")}
+
+This link expires on {escape(expires)}.
+
+If you didn’t request this reset, you can ignore this email.
+{_email_footer()}
+'''.strip()
 
 def tpl_inactive_account(*, user: str,  last_login: str) -> str:
     return f'''
-        Hello {escape(user)}!
+Hello {escape(user)},
 
-        We noticed that your Git Glimpse account was inactive for a long time. 
-        Over 90 days have passed since your last login ({escape(last_login)})
-        To keep your accounts repos avaliable, you only need to login to your account:  
-        {escape(_get_base_url()+'/login')}
+Your Git Glimpse account has been inactive for over 90 days.
+Your last login was on {escape(last_login)}.
 
-        If you will still stay inactive, after 7 days after sending this email your repos will become hiddend and removed from our servers. 
-    '''
+To keep your repositories active, simply log in:
+{escape(_get_base_url() + '/login')}
+
+If no activity occurs within 7 days, your repositories will be hidden and removed from our servers.
+
+Logging in at any time will prevent this.
+{_email_footer()}
+'''.strip()
 
 def tpl_repo_removal(*, user: str) -> str:
     return f'''
-        Hello {escape(user)}!
+Hello {escape(user)},
 
-        Due to your long inactivity on Git Glimpse we are removing your repositories from our servers.
-        They will no longer be visible, however if you would like them back, you can still login, and create a new build to make them visible again.
-    '''
-        
+Due to extended inactivity, your Git Glimpse repositories have been removed from our servers.
+
+Your account is still active.
+If you log in and create a new build, your repositories will become visible again.
+
+Login here:
+{escape(_get_base_url() + '/login')}
+{_email_footer()}
+'''.strip()
+
+def tpl_account_banned(*, user: str, reason: str | None) -> str:
+    return f'''
+Hello {escape(user)},
+
+Your Git Glimpse account has been banned by an administrator.
+
+{f"Reason: {escape(reason)}" if reason else ""}
+
+You no longer have access to your account or repositories.
+{f"If you believe this is a mistake, contact us at {_CONTACT}." if _CONTACT else ""}
+
+{_email_footer()}
+'''.strip()
+
+def tpl_account_unbanned(*, user: str) -> str:
+    return f'''
+Hello {escape(user)},
+
+Your Git Glimpse account has been unbanned and access has been restored.
+
+You can log in here:
+{escape(_get_base_url() + '/login')}
+{_email_footer()}
+'''.strip()
 
 TEMPLATES = {
     EmailIntent.EMAIL_VERIFICATION: tpl_email_verification,
     EmailIntent.PASSWORD_RECOVERY: tpl_password_recovery,
     EmailIntent.INACTIVE_ACCOUNT: tpl_inactive_account,
-    EmailIntent.REPO_REMOVAL: tpl_repo_removal
+    EmailIntent.REPO_REMOVAL: tpl_repo_removal,
+    EmailIntent.ACCOUNT_BANNED: tpl_account_banned,
+    EmailIntent.ACCOUNT_UNBANNED: tpl_account_unbanned,
 }
 
 # functionality

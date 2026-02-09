@@ -602,6 +602,17 @@ def admin_users_id(user_id: int):
                 lg.Level.WARN, user_id=user_id,
                 extra={"admin_id": g.user.user_id, "reason": ban_reason}
             )
+            if user.is_verified:
+                email = db.get_user_email(user_id)
+                assert email
+                emails.send_email(
+                    emails.EmailIntent.ACCOUNT_BANNED,
+                    to=email,
+                    user_id=user_id,
+                    is_verified=user.is_verified,
+                    user=user.login,
+                    reason=ban_reason 
+                )
         else:
             if not user.is_banned: abort(400, "User is not banned")
             db.unban_user(user_id)
@@ -610,6 +621,16 @@ def admin_users_id(user_id: int):
                 lg.Level.WARN, user_id=user_id,
                 extra={"admin_id": g.user.user_id}
             )
+            if user.is_verified:
+                email = db.get_user_email(user_id)
+                assert email
+                emails.send_email(
+                    emails.EmailIntent.ACCOUNT_UNBANNED,
+                    to=email,
+                    user_id=user_id,
+                    is_verified=user.is_verified,
+                    user=user.login,
+                )
     # Expire
     expire = request.form.get("expire", "")
     if expire == "true":
