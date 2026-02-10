@@ -1,4 +1,5 @@
 from cryptography.fernet import Fernet 
+from globals import DATA_PATH, REPO_PATH, SIZE_CACHE_PATH
 from typing import Literal
 from pathlib import Path
 import zstandard as zstd
@@ -13,11 +14,6 @@ import json
 import os
 
 FERNET = Fernet(os.environ["FERNET_KEY"]) # REQUIRED
-
-PROJECT_ROOT_PATH = Path(__file__).parent.parent.parent 
-REPO_PATH =  PROJECT_ROOT_PATH / "repo"
-REPO_PATH.mkdir(exist_ok=True)
-SIZE_CACHE_FILE = REPO_PATH / ".size.json"
 
 MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -235,8 +231,8 @@ def zip_repo(ext_path: Path, zip_path: Path) -> None:
 
 def get_extracted_size() -> int:
     # Check cache
-    if SIZE_CACHE_FILE.exists():    
-        with open(SIZE_CACHE_FILE, "r") as cf:
+    if SIZE_CACHE_PATH.exists():    
+        with open(SIZE_CACHE_PATH, "r") as cf:
             try:
                 cached = json.load(cf)
                 timestamp: float = cached.get("timestamp", 0)
@@ -257,7 +253,7 @@ def get_extracted_size() -> int:
                 total += child.stat().st_size
     # Save to cache
     try:
-        with open(SIZE_CACHE_FILE, "w") as cf:
+        with open(SIZE_CACHE_PATH, "w") as cf:
             json.dump({"timestamp": time.time(), "extracted_size": total}, cf)
     except:
         pass

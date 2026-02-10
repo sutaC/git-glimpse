@@ -1,7 +1,12 @@
 from pathlib import Path
 
 PROJECT_ROOT_PATH = Path(__file__).parent.parent 
-DATABASE_PATH = PROJECT_ROOT_PATH / "database.db"
-REPO_PATH =  PROJECT_ROOT_PATH / "repo"
+DATA_PATH = PROJECT_ROOT_PATH / "data"
+REPO_PATH =  DATA_PATH / "repos"
 
+DATABASE_PATH = PROJECT_ROOT_PATH / "database.db"
+SIZE_CACHE_PATH = DATA_PATH / ".size.json"
+CLEANUP_CACHE_PATH = DATA_PATH / ".cleanup.json"
+
+DATA_PATH.mkdir(exist_ok=True)
 REPO_PATH.mkdir(exist_ok=True)

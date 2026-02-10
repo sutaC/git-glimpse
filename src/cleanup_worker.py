@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
 from lib.git import remove_protected_dir, RepoLock
-from globals import DATABASE_PATH, REPO_PATH
+from globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
 from lib.utils import timestamp_to_str
 from lib.database import Database
 from typing import NamedTuple
@@ -10,8 +10,6 @@ from time import time
 import lib.emails as emails
 import lib.logger as lg
 import json
-
-CLEANUP_PATH = REPO_PATH / ".cleanup.json"
 
 # --- repos
 def cleanup_repos(db: Database) -> int:
@@ -44,8 +42,7 @@ def cleanup_extracted() -> int:
                 remove_protected_dir(ext_path)
                 count += 1
     # removes cached size
-    size_cache = REPO_PATH / ".size.json"
-    size_cache.unlink(missing_ok=True)
+    SIZE_CACHE_PATH.unlink(missing_ok=True)
     return count
 
 # --- sessions
@@ -139,6 +136,7 @@ def cleanup_inactive_users_repos(db: Database) -> int:
     count = 0
     for uid, is_verified, email, login in users:
         repos = c.execute('SELECT `id` FROM `repos` WHERE `user_id` = ? AND `hidden` = 0;', (uid,)).fetchall()
+        if not repos: continue
         count += len(repos)
         c.execute('UPDATE `repos` SET `hidden` = 1 WHERE `user_id` = ? AND `hidden` = 0;', (uid,))
         for rid in repos:
@@ -169,9 +167,9 @@ class CleanupData(NamedTuple):
     cl_inactive_users_repos: int
 
 def get_last_cleanup() -> CleanupData | None:
-    if not CLEANUP_PATH.exists(): return None
+    if not CLEANUP_CACHE_PATH.exists(): return None
     try:
-        with open(CLEANUP_PATH, "r") as cf:
+        with open(CLEANUP_CACHE_PATH, "r") as cf:
             data = json.load(cf)
             return CleanupData(*data.values())
     except: return None
@@ -196,7 +194,7 @@ def main():
         duration = int((ts_end-ts_start)*1000)
         # Saves last cleanup data to file
         try:
-            with open(CLEANUP_PATH, "w") as cf:
+            with open(CLEANUP_CACHE_PATH, "w") as cf:
                 json.dump({
                     "satarted": timestamp_to_str(int(ts_start)),
                     "duration": duration,
