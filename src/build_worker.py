@@ -1,12 +1,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
-from globals import DATABASE_PATH, REPO_PATH
-from lib.database import Database
-import lib.logger as lg
+from src.globals import DATABASE_PATH, REPO_PATH
+from src.lib.database import Database
+from src.lib import git, logger as lg
 from time import sleep, time
-import lib.git as git
-
 
 def main():
     db = Database(DATABASE_PATH, raw_mode=True)

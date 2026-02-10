@@ -1,34 +1,67 @@
 # Git Glimpse
 
-Simple aplication for sharing GitHub private repos with your firends via public link
+Git Glimpse is a simple self-hosted application for sharing private GitHub repositories with friends via public links.
 
 > Currently in development
 
-## Preparing project
+## Requiraments
 
-1. Create venv: `python -m venv .venv`
-1. Download dependencies: `pip install -r requiraments.txt`
+- Docker
+- Docker Compose
+- Cron (optional, required for automated cleanup in production)
 
-## Env
+## Enviroment configuration
 
-Env template can be found in [template.env](template.env), which provides required fields with description for `.env` file.
+An environment file is **required** for the application to run.
 
-### Production
-
-Application uses smtp server to send emails to users, you can configure smtp options in `.env`.
-
-Additionally, for sending correct urls, you will need to specify your domain in `.env`.
+1. Copy the example file:
+    ```bash
+    cp .env.example .env
+    ```
+2. Fill in required values described in `.env.example`
+    > In development mode, emails are printed to stdout — no SMTP server is required.
 
 ## Development
 
-0.  Activate venv: `source .venv/bin/activate`
-1.  Run web server: `flask --app src/app.py --debug run`
-    - Web app handing requests
-2.  Run build worker: `python3 src/build_worker.py`
-    - In intervals checks for pending builds and builds them
-    - **Required** for service to function
-3.  \* To run cleanup: `python3 src/cleanup_worker.py`
-    - Cleans dangling data, meant to run periodically, like once a day, to prevent storing garbage data
-4.  \* Root password reset: `python3 src/root_passwd.py`
-    - After initialising database the **only** option for changin root user password is via given script
-5.  \* Emails in 'dev' mode are passed to stdout, so for local development you will **not need smtp server**
+Development uses Docker with live reload and mounted source code.
+
+1. Build image:
+    ```bash
+    docker build -t git-glimpse .
+    ```
+2. Start the app (dev mode):
+    ```bash
+    docker compose up
+    ```
+3. Cleanup worker (manual):
+    ```bash
+     scripts/run_cleanup.sh
+    ```
+4. Reset root password:
+
+    ```bash
+     src/run_root_passwd.sh
+    ```
+
+    > After initialising database the **only** way to change root account password.
+
+---
+
+## Production
+
+Production uses the same Docker image, without dev overrides.
+To run production:
+
+1. Build image:
+    ```bash
+    docker build -t git-glimpse .
+    ```
+2. Setup cron jobs:
+    ```bash
+    ./scripts/setup_cron.sh
+    ```
+    > Runs cleanup worker once per day
+3. Start the app:
+    ```bash
+    docker-compose -f docker-compose.yml up
+    ```

@@ -1,4 +1,4 @@
-from lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
+from src.lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path

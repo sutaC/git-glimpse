@@ -1,15 +1,11 @@
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from globals import REPO_PATH, DATABASE_PATH
+from src.lib import emails, utils, auth, git, logger as lg
+from src.globals import REPO_PATH, DATABASE_PATH
 from tempfile import NamedTemporaryFile
-from lib.database import Database
+from src.lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
-from lib import emails
-import cleanup_worker as cworker
-import lib.utils as utils
-import lib.logger as lg
-import lib.auth as auth
-import lib.git as git
+import src.cleanup_worker as cworker
 import time
 import os
 

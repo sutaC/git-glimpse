@@ -1,11 +1,11 @@
-from lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
-from lib.utils import is_vaild_status
+from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
+from src.lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
 from pathlib import Path
+from src.lib import auth
 from time import time
 from flask import g
-import lib.auth as auth
 import sqlite3
 import os
 

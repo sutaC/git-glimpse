@@ -1,14 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
-from lib.git import remove_protected_dir, RepoLock
-from globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
-from lib.utils import timestamp_to_str
-from lib.database import Database
+from src.lib.git import remove_protected_dir, RepoLock
+from src.globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
+from src.lib.utils import timestamp_to_str
+from src.lib import emails, logger as lg
+from src.lib.database import Database
 from typing import NamedTuple
 from time import time
-import lib.emails as emails
-import lib.logger as lg
 import json
 
 # --- repos

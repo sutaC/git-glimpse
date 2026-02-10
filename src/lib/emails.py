@@ -1,18 +1,18 @@
 from email.message import EmailMessage
 from dataclasses import dataclass
 from markupsafe import escape
-import lib.logger as lg
+import src.lib.logger as lg
 import smtplib
 import os
 
 _ENV = os.environ.get("ENV", "dev")
 _DOMAIN = os.environ.get("DOMAIN", "")
 _CONTACT = os.environ.get("CONTACT_EMAIL", "")
-SMTP_HOST = os.environ["SMTP_HOST"]                 # REQUIRED
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))   # REQUIRED
-SMTP_USER = os.environ["SMTP_USER"]                 # REQUIRED
-SMTP_PASS = os.environ["SMTP_PASS"]                 # REQUIRED
-SMTP_FROM = os.environ["SMTP_FROM"]                 # REQUIRED
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "")
 
 # intents
 class EmailIntent:

@@ -1,9 +1,9 @@
+from src.globals import REPO_PATH, SIZE_CACHE_PATH
 from cryptography.fernet import Fernet 
-from globals import DATA_PATH, REPO_PATH, SIZE_CACHE_PATH
+from src.lib import logger as lg
 from typing import Literal
 from pathlib import Path
 import zstandard as zstd
-import lib.logger as lg
 import subprocess
 import tempfile
 import tarfile
@@ -13,7 +13,8 @@ import time
 import json
 import os
 
-FERNET = Fernet(os.environ["FERNET_KEY"]) # REQUIRED
+_FERNET_KEY = os.environ.get("FERNET_KEY", "")
+FERNET = Fernet(_FERNET_KEY)
 
 MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
