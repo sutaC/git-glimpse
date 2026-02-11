@@ -119,7 +119,7 @@ def raw(repo_id: str, sub: str):
                 download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
-        archive_path = repo_path / "build.tar.zst"
+        archive_path = repo_path / git.ARTIFACT_NAME
         if not archive_path.exists(): abort(404)
         return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
@@ -141,18 +141,22 @@ def repos_add():
         return render_template("repos_add.html")
     # POST:
     url = request.form.get("url", "").strip()
+    ssh_key =  request.form.get("ssh_key")
     if not url: 
         return render_template("repos_add.html", error_msg="Missing url", url=url)
-    ssh_key =  request.form.get("ssh_key")
-    if ssh_key: ssh_key = ssh_key.strip()
-    else: ssh_key = None
     if not utils.is_valid_repo_url(url):
         return render_template("repos_add.html", error_msg="Invalid url", url=url)
     if db.is_repo_url_for_user(url, g.user.user_id):  
         return render_template("repos_add.html", error_msg="Repo with that url already exists for that user", url=url)
-    if url.startswith("https://") and ssh_key:
-        return render_template("repos_add.html", error_msg="To use ssh-key you need to provide ssh url", url=url)
-    if ssh_key: ssh_key = git.encrypt_ssh_key(ssh_key)
+    if ssh_key:
+        if url.startswith("https://"):
+            return render_template("repos_add.html", error_msg="To use ssh-key you need to provide ssh url", url=url)
+        ssh_key = git.normalize_ssh_key(ssh_key)
+        key_err = git.validate_ssh_key(ssh_key)
+        if key_err:
+            return render_template("repos_add.html", error_msg=key_err, url=url)
+        ssh_key = git.encrypt_ssh_key(ssh_key)
+    else: ssh_key = None
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
     repo_id = db.add_repo(g.user.user_id, url, repo_name, ssh_key)
     lg.log(lg.Event.REPO_ADDED, repo_id=repo_id, user_id=g.user.user_id)

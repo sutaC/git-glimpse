@@ -47,7 +47,7 @@ def main():
                     lg.Event.BUILD_FAILED, 
                     lg.DEFAULT_LEVELS.get(re.code, lg.Level.ERROR), 
                     re.code, build.id, build.repo_id, repo.user_id,
-                    {"duration": int((ts_end-ts_start)*1000)}
+                    {"duration": int((ts_end-ts_start)*1000), **re.extra}
                 )
                 continue
             elif re.type == 'v': 
@@ -55,7 +55,7 @@ def main():
                     lg.Event.BUILD_VIOLATION, 
                     lg.DEFAULT_LEVELS.get(re.code, lg.Level.WARN), 
                     re.code, build.id, build.repo_id, repo.user_id,
-                    {"duration": int((ts_end-ts_start)*1000)}
+                    {"duration": int((ts_end-ts_start)*1000), **re.extra}
                 )
                 continue
         db.update_build(build.id, 's', repo_size, archive_size)

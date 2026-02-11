@@ -75,8 +75,10 @@ class Code:
     BUILD_EXCEPTION = "BUILD_EXCEPTION"
     REPO_LOCK_ACQUISITION = "REPO_LOCK_AQUISITION"
     REPO_NOT_FOUND = "REPO_NOT_FOUND"
+    REPO_PERMISSION_DENIED = "REPO_PERMISSION_DENIED"
     USER_NOT_FOUND = "USER_NOT_FOUND"
     INVALID_PASSWORD = "INVALID_PASSWORD"
+    NETWORK_ERROR = "NETWORK_ERROR"
 
 USER_MESSAGES = {
     Code.LIMIT_MAX_SIZE: "Repository exceeds 100 MB limit",
@@ -88,8 +90,10 @@ USER_MESSAGES = {
     Code.SCAN_TIMEOUT: "Repository scanning exceeded 10 seconds",
     Code.CLONE_TIMEOUT: "Repository cloning exceeded 30 seconds",
     Code.BUILD_EXCEPTION: "Build failed due to an unexpected error",
-    Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock. Try again later",
-    Code.REPO_NOT_FOUND: "Repository data was not found"
+    Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock, try again later",
+    Code.REPO_NOT_FOUND: "Repository not found or private access denied",
+    Code.REPO_PERMISSION_DENIED: "Permission denied, check your deploy key access",
+    Code.NETWORK_ERROR: "Network error, try again later"
 }
 
 DEFAULT_LEVELS = {
@@ -99,10 +103,12 @@ DEFAULT_LEVELS = {
     Code.LIMIT_MAX_DIRS: "WARN",
     Code.LIMIT_MAX_DEPTH: "WARN",
     Code.FORBIDDEN_FILE_TYPE: "WARN",
+    Code.REPO_PERMISSION_DENIED: "WARN",
     Code.SCAN_TIMEOUT: "ERROR",
     Code.CLONE_TIMEOUT: "ERROR",
     Code.BUILD_EXCEPTION: "ERROR",
-    Code.REPO_LOCK_ACQUISITION: "ERROR"
+    Code.REPO_LOCK_ACQUISITION: "ERROR",
+    Code.NETWORK_ERROR: "ERROR"
 }
 
 def log(

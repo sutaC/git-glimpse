@@ -9,3 +9,19 @@ services:
             - FLASK_APP=src.app
             - FLASK_ENV=development
             - FLASK_DEBUG=1
+    build_worker:
+        command:
+            [
+                "watchmedo",
+                "auto-restart",
+                "--directory=/app/src",
+                "--pattern=*.py",
+                "--recursive",
+                "--",
+                "python",
+                "-m",
+                "src.build_worker",
+            ]
+        volumes:
+            - ./src:/app/src:cached
+            - ./data:/app/data

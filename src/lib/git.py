@@ -16,6 +16,7 @@ import os
 _FERNET_KEY = os.environ.get("FERNET_KEY", "")
 FERNET = Fernet(_FERNET_KEY)
 
+ARTIFACT_NAME = "artifact.tar.zst"
 MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_FILE_COUNT = 10_000
@@ -25,10 +26,11 @@ MAX_SCAN_TIME = 10 # 10 s
 MAX_CLONE_TIME = 30 # 30 s
 
 class RepoError(RuntimeError):
-    def __init__(self, type: Literal['f', 'v'], code: str, *args: object) -> None:
+    def __init__(self, type: Literal['f', 'v'], code: str, **args) -> None:
         super().__init__(*args)
         self.type: Literal['f', 'v'] = type
         self.code: str = code
+        self.extra = args
 
 class RepoLock:
     def __init__(self, repo_path: Path):
@@ -99,19 +101,21 @@ def check_repo_limits(path: Path) -> int:
     return total_size
    
 def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[int, int]:
-    env = None
+    env = os.environ.copy()
     key_path = None
     try:
         if ssh_key:
             key_path = write_ssh_key_temp(ssh_key)
-            env = {
-                **os.environ,
-                "GIT_SSH_COMMAND": f"ssh -i {key_path} -o StrictHostKeyChecking=no"
-            }
+            env["GIT_SSH_COMMAND"] = f"\
+                ssh -i {key_path} \
+                    -o StrictHostKeyChecking=yes \
+                    -o IdentitiesOnly=yes \
+                    -o UserKnownHostsFile=/home/appuser/.ssh/known_hosts \
+            "
         with tempfile.TemporaryDirectory() as tmpdir_str:
             tmpdir = Path(tmpdir_str)
             try:
-                subprocess.run([
+                result = subprocess.run([
                         "git", "clone", 
                         "--depth", "1",
                         "--single-branch",
@@ -119,14 +123,26 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
                         "--no-recurse-submodules",
                         url, str(tmpdir)
                     ],
-                    check=True,
+                    capture_output=True,
+                    text=True,
                     env=env,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
                     timeout=MAX_CLONE_TIME
                 )
-            except subprocess.CalledProcessError as e:
-                raise RepoError('f', lg.Code.BUILD_EXCEPTION, {"reason": e.stderr.decode()})
+            except subprocess.TimeoutExpired:
+                raise RepoError('v', lg.Code.CLONE_TIMEOUT)
+            except OSError as e:
+                raise RepoError('f', lg.Code.BUILD_EXCEPTION, reason=e.strerror)
+            # Clone errors
+            if result.returncode != 0:
+                stderr = result.stderr.lower()
+                if "permission denied" in stderr:
+                    raise RepoError('f', lg.Code.REPO_PERMISSION_DENIED)
+                elif "repository not found" in stderr:
+                    raise RepoError('f', lg.Code.REPO_NOT_FOUND)
+                elif "could not resolve host" in stderr or "connection timed out" in stderr:
+                    raise RepoError('f', lg.Code.NETWORK_ERROR)
+                else:
+                    raise RepoError('f', lg.Code.BUILD_EXCEPTION)
             # Removes git
             git_dir = tmpdir / ".git"
             if git_dir.is_dir(): shutil.rmtree(git_dir, ignore_errors=True)
@@ -141,7 +157,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
                 remove_protected_dir(repo_dir)
             repo_dir.mkdir(exist_ok=True, parents=True)
             # Moves files to repo_dir archive
-            archive_path = repo_dir / "build.tar.zst"
+            archive_path = repo_dir / ARTIFACT_NAME
             compress_repo(tmpdir, archive_path)
             archive_path.chmod(0o400)
             # returns repo size
@@ -150,7 +166,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
     except RepoError:
         raise # pass RepoErorrs
     except Exception as e:
-        raise RepoError('f', lg.Code.BUILD_EXCEPTION, {"reason": str(e)})
+        raise RepoError('f', lg.Code.BUILD_EXCEPTION, reason=str(e))
     finally:
         if key_path: key_path.unlink(missing_ok=True)
 
@@ -162,7 +178,7 @@ def compress_repo(src_dir: Path, archive_path: Path, compression_level: int = 3)
                 tar.add(src_dir, arcname="")
 
 def extract_repo(repo_path: Path) -> None:
-    archive_path = repo_path / "build.tar.zst"
+    archive_path = repo_path / ARTIFACT_NAME
     if not archive_path.exists(): raise RuntimeError("Archive doesnt exist")
     with RepoLock(repo_path):
         ext_path = repo_path / "extracted"
@@ -266,9 +282,71 @@ def encrypt_ssh_key(ssh_key: str) -> str:
 def decrypt_ssh_key(ssh_key: str) -> str:
     return FERNET.decrypt(ssh_key.encode()).decode()
 
+def normalize_ssh_key(ssh_key: str) -> str:
+    ssh_key = ssh_key.strip().replace("\r\n", "\n").replace("\r", "\n")
+    if not ssh_key.endswith("\n"):
+        ssh_key += "\n"
+    return ssh_key
+
 def write_ssh_key_temp(ssh_key: str) -> Path:
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
         f.write(ssh_key)
         key_path = Path(f.name)
-        key_path.chmod(0o600)
+    key_path.chmod(0o600)
     return key_path
+
+def check_ssh_access(key_path: str) -> bool:
+    result = subprocess.run(
+        [
+            "ssh",
+            "-i", key_path,
+            "-o", "IdentitiesOnly=yes",
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=yes",
+            "-o", "UserKnownHostsFile=/home/appuser/.ssh/known_hosts",
+            "git@github.com"
+        ],
+        capture_output=True,
+        text=True,
+        timeout=5
+    )
+    return "successfully authenticated" in result.stdout + result.stderr
+
+def validate_ssh_key(key: str) -> str | None:
+    # lengh check
+    if len(key) > 10_000:
+        return "SSH key too large"
+    # ssh-keygen check
+    path = write_ssh_key_temp(key)
+    try:
+        # check structure
+        try:
+            subprocess.run(
+                ["ssh-keygen", "-l", "-f", str(path)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=5
+            )
+        except subprocess.CalledProcessError:
+            return "SSH key is invalid"
+        # check if not encrypted 
+        try:
+            subprocess.run(
+                ["ssh-keygen", "-y", "-f", str(path)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=5
+            )
+        except subprocess.CalledProcessError:
+            return "SSH key is encrypted"
+        # check access
+        if not check_ssh_access(str(path)):
+            return "SSH key does not provide required permissions"
+    except subprocess.TimeoutExpired:
+        return "SSH key check timed out"
+    except OSError:
+        return "Failed to validate SSH key"
+    finally:
+        path.unlink(missing_ok=True)
