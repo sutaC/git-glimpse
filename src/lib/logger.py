@@ -12,7 +12,7 @@ class Level:
 
 class Event:
     # Server
-    SERVER_internal_ERROR = "server.internal.error"
+    SERVER_INTERNAL_ERROR = "server.internal.error"
     # Worker
     WORKER_START = "worker.start"
     WORKER_IDLE = "worker.idle"

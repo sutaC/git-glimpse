@@ -12,6 +12,11 @@ import os
 load_dotenv()
 
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL")
+ERROR_PAGE_TITLES = {
+    403: "Forbidden",
+    404: "Page Not Found",
+    500: "Internal Server Error"
+}
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
@@ -20,6 +25,7 @@ db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
 
+# --- request handlers
 @app.teardown_appcontext
 def db_close(error=None):
     db._close()
@@ -49,6 +55,24 @@ def clear_session_cookie(response: Response):
         response.delete_cookie("session_id")
     return response
 
+@app.errorhandler(Exception)
+def handle_errors(e):
+    if app.debug:
+        raise e # re-raise for flask default debugger
+    code = getattr(e, 'code', None)
+    if not code:
+        app.logger.exception(e)        
+        lg.log(lg.Event.SERVER_INTERNAL_ERROR, level=lg.Level.ERROR, extra={"error": str(e)})
+    code = code or 500
+    return render_template(
+        "error.html", 
+        code=code,
+        title=ERROR_PAGE_TITLES.get(code, "Error"), 
+        contact=CONTACT_EMAIL, 
+        message=str(e) if app.debug else None
+    ), code
+
+# --- route handlers
 @app.route("/")
 def root():
     return render_template("index.html")
@@ -332,11 +356,7 @@ def repos_remove(repo_id: str):
     if not user_id or user_id != g.user.user_id: abort(404)
     db.delete_repo(repo_id)
     path = REPO_PATH / repo_id
-    try:
-        if path.exists(): git.remove_protected_dir(path)
-    except Exception as e:
-        lg.log(lg.Event.SERVER_internal_ERROR, lg.Level.ERROR, repo_id=repo_id, extra={"reason": str(e)})
-        abort(500, "Repo removal failed")
+    if path.exists(): git.remove_protected_dir(path)
     lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
     return redirect("/dashboard")
 
