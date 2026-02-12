@@ -1,12 +1,15 @@
 #!/bin/bash
-# run_root_passwd.sh - wrapper to run root_passwd in Docker
+# run_root_passwd_dev.sh - wrapper to run root_passwd in Docker
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-
-docker run --rm \
-    -v $PROJECT_DIR/data:/app/data \
-    -v $PROJECT_DIR/scripts:/app/scripts \
-    --env-file $PROJECT_DIR/.env \
-    git-glimpse \
-    python scripts/root_passwd.py "$@"
+if [ "$PROD" = "1" ]; then
+    docker compose \
+        -f docker-compose.yml \
+        -f docker-compose.prod.yml \
+        --profile manual \
+        run --rm root_passwd "$@"
+else
+    docker compose \
+        --profile manual \
+        run --rm root_passwd "$@"
+fi

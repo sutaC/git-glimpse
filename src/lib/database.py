@@ -117,7 +117,9 @@ class Database:
         if not root_id:
             password = os.getenv("ROOT_PASSWORD") or "password"
             hashed_password = auth.hash_password(password)
+            self._connect().execute("PRAGMA foreign_keys = OFF")
             root_id = self.add_user("root", "", hashed_password, 'a')
+            self._connect().execute("PRAGMA foreign_keys = ON")
             self.set_user_verified(root_id)
         self.path.chmod(0o600)
 

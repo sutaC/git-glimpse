@@ -1,3 +1,4 @@
+import signal
 from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
@@ -5,6 +6,9 @@ from src.globals import DATABASE_PATH, REPO_PATH
 from src.lib.database import Database
 from src.lib import git, logger as lg
 from time import sleep, time
+import threading
+
+shutdown_event = threading.Event()
 
 def main():
     db = Database(DATABASE_PATH, raw_mode=True)
@@ -12,7 +16,7 @@ def main():
     lg.log(lg.Event.WORKER_START)
     db.resurect_running_builds()
     prev_idle = False
-    while True:
+    while not shutdown_event.is_set():
         build = db.get_pending_build()
         if not build:
             db._close() # to not hold db on sleeping
@@ -68,6 +72,12 @@ def main():
         )
 
 if __name__ == "__main__":
+    # Handles SIGTERM
+    def handle_sigterm(signum, frame):
+        print("Shutting down gracefully...")
+        shutdown_event.set()
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    # Runs worker
     try:
         main()
     except KeyboardInterrupt:

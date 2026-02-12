@@ -4,8 +4,8 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-docker run -itd --rm \
-    -v $PROJECT_DIR/data:/app/data \
-    --env-file $PROJECT_DIR/.env \
-    git-glimpse \
-    python -m src.cleanup_worker
+docker compose \
+  -f "$PROJECT_DIR/docker-compose.yml" \
+  -f "$PROJECT_DIR/docker-compose.prod.yml" \
+  --profile manual \
+  run --rm cleanup_worker 2>/dev/null

@@ -1,0 +1,22 @@
+services:
+    web:
+        volumes:
+            - /mnt/git-glimpse-data:/app/data
+        read_only: true
+        tmpfs:
+            - /tmp:rw,size=500m
+    build_worker:
+        volumes:
+            - /mnt/git-glimpse-data:/app/data
+        read_only: true
+        tmpfs:
+            - /tmp:rw,size=500m
+    cleanup_worker:
+        volumes:
+            - /mnt/git-glimpse-data:/app/data
+        read_only: true
+    root_passwd:
+        volumes:
+            - /mnt/git-glimpse-data:/app/data
+            - ./scripts:/app/scripts
+        read_only: true

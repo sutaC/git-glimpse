@@ -136,6 +136,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
             if result.returncode != 0:
                 stderr = result.stderr.lower()
                 if "permission denied" in stderr:
+                    # TODO: permision error on non-key ssh
                     raise RepoError('f', lg.Code.REPO_PERMISSION_DENIED)
                 elif "repository not found" in stderr:
                     raise RepoError('f', lg.Code.REPO_NOT_FOUND)

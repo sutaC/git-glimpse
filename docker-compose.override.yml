@@ -25,3 +25,10 @@ services:
         volumes:
             - ./src:/app/src:cached
             - ./data:/app/data
+    cleanup_worker:
+        volumes:
+            - ./data:/app/data
+    root_passwd:
+        volumes:
+            - ./data:/app/data
+            - ./scripts:/app/scripts

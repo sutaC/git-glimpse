@@ -92,7 +92,7 @@ USER_MESSAGES = {
     Code.BUILD_EXCEPTION: "Build failed due to an unexpected error",
     Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock, try again later",
     Code.REPO_NOT_FOUND: "Repository not found or private access denied",
-    Code.REPO_PERMISSION_DENIED: "Permission denied, check your deploy key access",
+    Code.REPO_PERMISSION_DENIED: "Permission denied, check your deploy key access or if url is correct",
     Code.NETWORK_ERROR: "Network error, try again later"
 }
 

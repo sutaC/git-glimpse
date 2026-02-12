@@ -1,23 +1,39 @@
 services:
     web:
-        build: .
+        build: git-glimpse
         command: ["gunicorn", "-b", "0.0.0.0:5000", "src.wsgi:app"]
         volumes:
-            - ./data:/app/data
+            - data_volume:/app/data
         ports:
             - "5000:5000"
         env_file:
             - .env
-
     build_worker:
-        build: .
+        build: git-glimpse
         command: ["python", "-m", "src.build_worker"]
         volumes:
-            - ./data:/app/data
+            - data_volume:/app/data
         env_file:
             - .env
-        deploy:
-            resources:
-                limits:
-                    cpus: "1.0"
-                    memory: 512M
+        stop_grace_period: 30s
+    cleanup_worker:
+        build: git-glimpse
+        profiles:
+            - manual
+        command: ["python", "-m", "src.cleanup_worker"]
+        volumes:
+            - data_volume:/app/data
+        env_file:
+            - .env
+    root_passwd:
+        image: git-glimpse
+        profiles:
+            - manual
+        entrypoint: ["python", "scripts/root_passwd.py"]
+        volumes:
+            - data_volume:/app/data
+            - ./scripts:/app/scripts
+        env_file:
+            - .env
+volumes:
+    data_volume:
