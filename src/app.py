@@ -57,10 +57,10 @@ def clear_session_cookie(response: Response):
 
 @app.errorhandler(Exception)
 def handle_errors(e):
-    if app.debug:
-        raise e # re-raise for flask default debugger
     code = getattr(e, 'code', None)
     if not code:
+        if app.debug:
+            raise e # re-raise for flask default debugger
         app.logger.exception(e)        
         lg.log(lg.Event.SERVER_INTERNAL_ERROR, level=lg.Level.ERROR, extra={"error": str(e)})
     code = code or 500
@@ -173,13 +173,15 @@ def repos_add():
     if db.is_repo_url_for_user(url, g.user.user_id):  
         return render_template("repos_add.html", error_msg="Repo with that url already exists for that user", url=url)
     if ssh_key:
-        if url.startswith("https://"):
+        if url.startswith("https://"): # uses HTTPS
             return render_template("repos_add.html", error_msg="To use ssh-key you need to provide ssh url", url=url)
         ssh_key = git.normalize_ssh_key(ssh_key)
         key_err = git.validate_ssh_key(ssh_key)
         if key_err:
             return render_template("repos_add.html", error_msg=key_err, url=url)
         ssh_key = git.encrypt_ssh_key(ssh_key)
+    elif url.startswith("git@github.com"): # uses SSH
+        return render_template("repos_add.html", error_msg="To use ssh url you need to provide ssh-key", url=url)
     else: ssh_key = None
     repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
     repo_id = db.add_repo(g.user.user_id, url, repo_name, ssh_key)
