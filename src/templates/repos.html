@@ -28,8 +28,10 @@
         </header>
         <main>
             {% if path.is_dir() %} {{ section_dir(path, repo_id, parent_chain,
-            repo_name, path_str) }} {% elif path.is_file() %} {{
-            section_file(path, repo_id, parent_chain, is_text) }} {% endif %}
+            repo_name, path_str, children) }} {% elif path.is_file() %} {{
+            section_file(path, repo_id, parent_chain, is_text) }} {% endif %} {%
+            if readme_child %} {{ section_file(readme_child, 0, 0, 1) }} {%
+            endif %}
         </main>
         <footer>
             Made by:
