@@ -1,46 +1,42 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        <title>
-            {{path_str+' | ' if path_str else '' }}{{repo_name}} | Git Glimpse
-        </title>
-        {% from "components/section_file.html" import section_file %} {% from
-        "components/section_dir.html" import section_dir %}
-    </head>
-    <body>
-        <header>
-            <h1 class="curr_path">
-                {% if path_str %}
-                <a href="/repos/{{repo_id|urlencode}}/">{{repo_name}}</a>
-                {% else %} {{repo_name}} {% endif %} {% for parent in
-                parent_chain %} /
-                <a href="/repos/{{repo_id|urlencode}}/{{parent|urlencode}}"
-                    >{{parent.rsplit('/',1)[-1]}}</a
-                >
-                {% endfor %} {% if path_str %} / {{path.name}} {%endif%}
-            </h1>
-        </header>
-        <main>
-            {% if path.is_dir() %} {{ section_dir(path, repo_id, parent_chain,
-            repo_name, path_str, children) }} {% elif path.is_file() %} {{
-            section_file(path, repo_id, parent_chain, is_text) }} {% endif %} {%
-            if readme_child %} {{ section_file(readme_child, 0, 0, 1) }} {%
-            endif %}
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% from "macros/section_file.html" import section_file %}
+<!-- prettier-ignore -->
+{% from "macros/section_dir.html" import section_dir %}
+<!-- prettier-ignore -->
+{% block title %}{{path_str+' | ' if path_str else '' }}{{repo_name}} | Git Glimpse{% endblock %}
+
+<!-- prettier-ignore -->
+{% block nav %} 
+{% if g.user %}
+<a href="/dashboard">Dashboard</a>
+{% else %}
+<a href="/login">Login</a>
+<a href="/register">Register</a>
+{% endif %} {% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1 class="curr_path">
+    {% if path_str %}
+    <a href="/repos/{{repo_id|urlencode}}/">{{repo_name}}</a>
+    <!-- prettier-ignore -->
+    {% else %} 
+    {{repo_name}}
+    <!-- prettier-ignore -->
+    {% endif %}
+    <!-- prettier-ignore -->
+    {% for parent in parent_chain %} /
+    <a href="/repos/{{repo_id|urlencode}}/{{parent|urlencode}}">{{parent.rsplit('/',1)[-1]}}</a>
+    {% endfor %}
+    <!-- prettier-ignore -->
+    {% if path_str %} / {{path.name}} {%endif%}
+</h1>
+<!-- prettier-ignore -->
+{% if path.is_dir() %} 
+    {{ section_dir(path, repo_id, parent_chain, repo_name, path_str, children) }}
+{% elif path.is_file() %} 
+    {{ section_file(path, repo_id, parent_chain, is_text) }} 
+{% endif %}
+{% if readme_child %}{{ section_file(readme_child, 0, 0, 1) }}{% endif %} 
+{% endblock %}

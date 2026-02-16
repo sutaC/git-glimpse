@@ -1,51 +1,26 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Login | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Login | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Login</h1>
-            <nav>
-                <a href="/">Home</a>
-            </nav>
-        </header>
-        <main>
-            <form
-                action="/login{{ '?next=' + next_url if next_url else ''}}"
-                method="post"
-            >
-                <p class="error_msg">{{error_msg}}</p>
-                <label for="login">Login:</label>
-                <input
-                    type="text"
-                    name="login"
-                    id="login"
-                    required
-                    value="{{login}}"
-                />
-                <label for="password">Password:</label>
-                <input type="password" name="password" id="password" required />
-                <button type="submit">Login</button>
-            </form>
-            <p>Don't have an account? <a href="/register">Register</a>!</p>
-            <p>Forgot password? <a href="/password/recover">Recover</a>!</p>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Login</h1>
+<form action="/login{{ '?next=' + next_url if next_url else ''}}" method="post">
+    <p class="error_msg">{{error_msg}}</p>
+    <label for="login">Login:</label>
+    <input type="text" name="login" id="login" required value="{{login}}" />
+    <label for="password">Password:</label>
+    <input type="password" name="password" id="password" required />
+    <button type="submit">Login</button>
+</form>
+<p>
+    Don't have an account?
+    <a href="/register">Register</a>
+    !
+</p>
+<p>
+    Forgot password?
+    <a href="/password/recover">Recover</a>
+    !
+</p>
+{% endblock %}

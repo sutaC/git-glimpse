@@ -1,40 +1,21 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Add | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Add repository | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Add new repo</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-            </nav>
-        </header>
-        <main>
-            <form action="/repos/add" method="post">
-                <p class="error_msg">{{error_msg}}</p>
-                <label for="url">Url:</label>
-                <input type="text" name="url" id="url" value="{{url}}" required />
-                <label for="ssh_key">Key:</label>
-                <textarea name="ssh_key" id="ssh_key"></textarea>
-                <button type="submit" {{"disabled" if is_blocked else ""}}>Add</button>
-            </form>
-        </main>
-    </body>
-    <footer>
-        Made by:
-        <a
-            href="http://github.com/sutaC"
-            target="_blank"
-            rel="noopener noreferrer"
-            >sutaC</a
-        >
-    </footer>
-</html>
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/dashboard">Dashboard</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Add new repository</h1>
+<form action="/repos/add" method="post">
+    <p class="error_msg">{{error_msg}}</p>
+    <label for="url">Url:</label>
+    <input type="text" name="url" id="url" value="{{url}}" required />
+    <label for="ssh_key">Key:</label>
+    <textarea name="ssh_key" id="ssh_key"></textarea>
+    <button type="submit" {{"disabled" if is_blocked else ""}}>Add</button>
+</form>
+{% endblock %}

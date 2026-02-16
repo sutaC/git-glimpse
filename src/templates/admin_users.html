@@ -1,94 +1,80 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Users | Admin | Git Glimpse</title>
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        <script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
-        {% from "components/table_users.html" import table_users %}
-    </head>
-    <body>
-        <header>
-            <h1>Admin - Users</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/admin">Admin</a>
-                <a href="/admin/repos">Repos</a>
-                <a href="/admin/builds">Builds</a>
-            </nav>
-        </header>
-        <main>
-            <section>
-                <div class="section_header">
-                    <h2>Filters</h2>
-                </div>
-                <div class="section_content">
-                    <form action="/admin/users" method="get" class="filters">
-                        <label for="verified">Verified: </label>
-                        <select name="verified" id="verified">
-                            <option value="" {{'selected' if verified=="" else ''}}>any</option>
-                            <option value="1" {{'selected' if verified=="1" else ''}}>yes</option>
-                            <option value="0" {{'selected' if verified=="0" else ''}}>no</option>
-                        </select>
-                        <label for="banned">Banned: </label>
-                        <select name="banned" id="banned">
-                            <option value="" {{'selected' if banned=="" else ''}}>any</option>
-                            <option value="1" {{'selected' if banned=="1" else ''}}>yes</option>
-                            <option value="0" {{'selected' if banned=="0" else ''}}>no</option>
-                        </select>
-                        <label for="inactive">Inactive: </label>
-                        <select name="inactive" id="inactive">
-                            <option value="" {{'selected' if inactive=="" else ''}}>any</option>
-                            <option value="1" {{'selected' if inactive=="1" else ''}}>yes</option>
-                            <option value="0" {{'selected' if inactive=="0" else ''}}>no</option>
-                        </select>
-                        <label for="role">Role: </label>
-                        <select name="role" id="role">
-                            <option value="" {{'selected' if role=="" else ''}}>any</option>
-                            <option value="u" {{'selected' if role=="u" else ''}}>user</option>
-                            <option value="a" {{'selected' if role=="a" else ''}}>admin</option>
-                        </select>
-                        <label for="login">Login: </label>
-                        <input type="text" name="login" id="login" value="{{login}}">
-                        <label for="email">Email: </label>
-                        <input type="text" name="email" id="email" value="{{email}}">
-                        <hr>
-                        <button type="reset" >Reset</button>
-                        <button type="submit">Apply</button>
-                    </form>
-                </div>
-            </section>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% from "macros/table_users.html" import table_users %}
+<!-- prettier-ignore -->
+{% block title %}Users | Admin | Git Glimpse{% endblock %}
+<!-- prettier-ignore -->
+{% block head %} 
+<script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
+{% endblock %}
 
-            <section>
-                <div class="section_header">
-                    <h2>Users</h2>
-                    <div class="pager">
-                        <button
-                            id="pager-prev"
-                            {{'disabled' if page <= 0 else ''}}
-                        >Previous</button>
-                        <button
-                            id="pager-next"
-                            {{'disabled' if is_last else ''}}
-                            >Next</button>
-                        <span>Page: {{page}}</span>
-                    </div>
-                </div>
-                <div class="section_content">{{ table_users(users) }}</div>
-            </section>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/dashboard">Dashboard</a>
+<a href="/admin">Admin</a>
+<a href="/admin/repos">Repos</a>
+<a href="/admin/builds">Builds</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Admin - Users</h1>
+<section>
+    <div class="section_header">
+        <h2>Filters</h2>
+    </div>
+    <div class="section_content">
+        <form action="/admin/users" method="get" class="filters">
+            <label for="verified">Verified: </label>
+            <select name="verified" id="verified">
+                <option value="" {{'selected' if verified=="" else ''}}>any</option>
+                <option value="1" {{'selected' if verified=="1" else ''}}>yes</option>
+                <option value="0" {{'selected' if verified=="0" else ''}}>no</option>
+            </select>
+            <label for="banned">Banned: </label>
+            <select name="banned" id="banned">
+                <option value="" {{'selected' if banned=="" else ''}}>any</option>
+                <option value="1" {{'selected' if banned=="1" else ''}}>yes</option>
+                <option value="0" {{'selected' if banned=="0" else ''}}>no</option>
+            </select>
+            <label for="inactive">Inactive: </label>
+            <select name="inactive" id="inactive">
+                <option value="" {{'selected' if inactive=="" else ''}}>any</option>
+                <option value="1" {{'selected' if inactive=="1" else ''}}>yes</option>
+                <option value="0" {{'selected' if inactive=="0" else ''}}>no</option>
+            </select>
+            <label for="role">Role: </label>
+            <select name="role" id="role">
+                <option value="" {{'selected' if role=="" else ''}}>any</option>
+                <option value="u" {{'selected' if role=="u" else ''}}>user</option>
+                <option value="a" {{'selected' if role=="a" else ''}}>admin</option>
+            </select>
+            <label for="login">Login: </label>
+            <input type="text" name="login" id="login" value="{{login}}">
+            <label for="email">Email: </label>
+            <input type="text" name="email" id="email" value="{{email}}">
+            <hr>
+            <button type="reset" >Reset</button>
+            <button type="submit">Apply</button>
+        </form>
+    </div>
+</section>
+
+<section>
+<div class="section_header">
+    <h2>Users</h2>
+    <div class="pager">
+        <button
+            id="pager-prev"
+            {{'disabled' if page <= 0 else ''}}
+        >Previous</button>
+        <button
+            id="pager-next"
+            {{'disabled' if is_last else ''}}
+            >Next</button>
+        <span>Page: {{page}}</span>
+    </div>
+</div>
+<div class="section_content">{{ table_users(users) }}</div>
+</section>
+{% endblock %}

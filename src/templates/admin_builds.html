@@ -1,81 +1,67 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Builds | Admin | Git Glimpse</title>
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        <script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
-        {% from "components/table_builds.html" import table_builds %}
-    </head>
-    <body>
-        <header>
-            <h1>Admin - Builds</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/admin">Admin</a>
-                <a href="/admin/users">Users</a>
-                <a href="/admin/repos">Repos</a>
-            </nav>
-        </header>
-        <main>
-            <section>
-                <div class="section_header">
-                    <h2>Filters</h2>
-                </div>
-                <div class="section_content">
-                    <form action="/admin/builds" method="get" class="filters">
-                        <label for="status">Status: </label>
-                        <select name="status" id="status">
-                            <option value="" {{'selected' if status=="" else ''}}>any</option>
-                            <option value="s" {{'selected' if status=="s" else ''}}>success</option>
-                            <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
-                            <option value="r" {{'selected' if status=="r" else ''}}>running</option>
-                            <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
-                            <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
-                        </select>
-                        <label for="repo">Repo id: </label>
-                        <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
-                        <label for="user">User login: </label>
-                        <input type="text" name="user" id="user" value="{{user}}">
-                        <label for="code">Code: </label>
-                        <input type="text" name="code" id="code" value="{{code or ''}}">
-                        <hr>
-                        <button type="reset" >Reset</button>
-                        <button type="submit">Apply</button>
-                    </form>
-                </div>
-            </section>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% from "macros/table_builds.html" import table_builds %}
+<!-- prettier-ignore -->
+{% block title %}Builds | Admin | Git Glimpse{% endblock %}
+<!-- prettier-ignore -->
+{% block head %} 
+<script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
+{% endblock %}
 
-            <section>
-                <div class="section_header">
-                    <h2>Builds</h2>
-                    <div class="pager">
-                        <button
-                            id="pager-prev"
-                            {{'disabled' if page <= 0 else ''}}
-                        >Previous</button>
-                        <button
-                            id="pager-next"
-                            {{'disabled' if is_last else ''}}
-                            >Next</button>
-                        <span>Page: {{page}}</span>
-                    </div>
-                </div>
-                <div class="section_content">{{ table_builds(builds) }}</div>
-            </section>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/dashboard">Dashboard</a>
+<a href="/admin">Admin</a>
+<a href="/admin/users">Users</a>
+<a href="/admin/repos">Repos</a> 
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Admin - Builds</h1>
+<section>
+    <div class="section_header">
+        <h2>Filters</h2>
+    </div>
+    <div class="section_content">
+        <form action="/admin/builds" method="get" class="filters">
+            <label for="status">Status: </label>
+            <select name="status" id="status">
+                <option value="" {{'selected' if status=="" else ''}}>any</option>
+                <option value="s" {{'selected' if status=="s" else ''}}>success</option>
+                <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
+                <option value="r" {{'selected' if status=="r" else ''}}>running</option>
+                <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
+                <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
+            </select>
+            <label for="repo">Repo id: </label>
+            <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
+            <label for="user">User login: </label>
+            <input type="text" name="user" id="user" value="{{user}}">
+            <label for="code">Code: </label>
+            <input type="text" name="code" id="code" value="{{code or ''}}">
+            <hr>
+            <button type="reset" >Reset</button>
+            <button type="submit">Apply</button>
+        </form>
+    </div>
+</section>
+
+<section>
+    <div class="section_header">
+        <h2>Builds</h2>
+        <div class="pager">
+            <button
+                id="pager-prev"
+                {{'disabled' if page <= 0 else ''}}
+            >Previous</button>
+            <button
+                id="pager-next"
+                {{'disabled' if is_last else ''}}
+                >Next</button>
+            <span>Page: {{page}}</span>
+        </div>
+    </div>
+    <div class="section_content">{{ table_builds(builds) }}</div>
+</section>
+{% endblock %}

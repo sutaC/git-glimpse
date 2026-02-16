@@ -1,6 +1,116 @@
+@import url("https://fonts.googleapis.com/css?family=Noto%20Sans%20Yi:700|Noto%20Sans%20Yi:400");
+
+/* --- values --- */
+
 * {
     box-sizing: border-box;
 }
+
+:root {
+    --text-50: #f4f2f0;
+    --text-100: #e9e5e2;
+    --text-200: #d3cbc5;
+    --text-300: #bdb0a8;
+    --text-400: #a7968b;
+    --text-500: #917c6e;
+    --text-600: #746358;
+    --text-700: #574a42;
+    --text-800: #3a322c;
+    --text-900: #1d1916;
+    --text-950: #0f0c0b;
+
+    --background-50: #f4f2f0;
+    --background-100: #e9e4e2;
+    --background-200: #d3cac5;
+    --background-300: #bdafa8;
+    --background-400: #a7948b;
+    --background-500: #917a6e;
+    --background-600: #746158;
+    --background-700: #574942;
+    --background-800: #3a312c;
+    --background-900: #1d1816;
+    --background-950: #0f0c0b;
+
+    --primary-50: #fff1e5;
+    --primary-100: #ffe2cc;
+    --primary-200: #ffc599;
+    --primary-300: #ffa866;
+    --primary-400: #ff8b33;
+    --primary-500: #ff6e00;
+    --primary-600: #cc5800;
+    --primary-700: #994200;
+    --primary-800: #662c00;
+    --primary-900: #331600;
+    --primary-950: #1a0b00;
+
+    --secondary-50: #f4f3f1;
+    --secondary-100: #e9e8e2;
+    --secondary-200: #d2d0c6;
+    --secondary-300: #bcb9a9;
+    --secondary-400: #a5a28d;
+    --secondary-500: #8f8a70;
+    --secondary-600: #726f5a;
+    --secondary-700: #565343;
+    --secondary-800: #39372d;
+    --secondary-900: #1d1c16;
+    --secondary-950: #0e0e0b;
+
+    --accent-50: #f4f4f1;
+    --accent-100: #e9e8e2;
+    --accent-200: #d3d2c5;
+    --accent-300: #bcbba9;
+    --accent-400: #a6a48c;
+    --accent-500: #908e6f;
+    --accent-600: #737159;
+    --accent-700: #565543;
+    --accent-800: #3a392c;
+    --accent-900: #1d1c16;
+    --accent-950: #0e0e0b;
+}
+
+body {
+    font-family: "Noto Sans Yi";
+    font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+    font-family: "Noto Sans Yi";
+    font-weight: 700;
+}
+
+html {
+    font-size: 100%;
+} /* 16px */
+
+h1 {
+    font-size: 2.489rem; /* 39.84px */
+}
+
+h2 {
+    font-size: 2.074rem; /* 33.12px */
+}
+
+h3 {
+    font-size: 1.728rem; /* 27.68px */
+}
+
+h4 {
+    font-size: 1.44rem; /* 23.04px */
+}
+
+h5 {
+    font-size: 1.2rem; /* 19.2px */
+}
+
+small {
+    font-size: 0.833rem; /* 13.28px */
+}
+
+/* --- styles --- */
 
 body {
     padding: 2rem 5% 1rem;

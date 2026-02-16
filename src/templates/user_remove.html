@@ -1,43 +1,22 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Remove User | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Remove account | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Remove User - {{user_login}}</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/user">User</a>
-            </nav>
-        </header>
-        <main>
-            <h2>Remove account</h2>
-            {% if user_login != "root" %}
-            <form action="/user/remove" method="POST">
-                <label for="password">Password:</label>
-                <input type="password" name="password" id="password" />
-                <button type="submit">Remove account</button>
-            </form>
-            {% else %}
-            <p>Cannot remove root user</p>
-            {% endif %}
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/dashboard">Dashboard</a>
+<a href="/user">Profile</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Remove account - {{user_login}}</h1>
+{% if user_login != "root" %}
+<form action="/user/remove" method="POST">
+    <label for="password">Password:</label>
+    <input type="password" name="password" id="password" />
+    <button type="submit">Remove account</button>
+</form>
+{% else %}
+<p>Cannot remove root user</p>
+{% endif %}{% endblock %}

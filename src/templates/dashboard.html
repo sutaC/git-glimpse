@@ -1,62 +1,40 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Dashboard | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Dashboard | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Dashboard - {{g.user.login}}</h1>
-            <nav>
-                <a href="/">Home</a>
-                <a href="/user">User</a>
-                <a href="/views">Views</a>
-                {% if g.user.is_verified %} {% if (g.user.role == 'a') %}
-                <a href="/admin">Admin</a>
-                {% endif %}
-                <a href="/repos/add">Add</a>
-                {% endif %}
-            </nav>
-        </header>
-        <main>
-            {% if not g.user.is_verified %}
-            <h2><a href="/verify">Verify your account</a></h2>
-            {% endif %}
-            <section>
-                <div class="section_header">
-                    <h2>Repos</h2>
-                </div>
-                <div class="section_content">
-                    <ul>
-                        {% for id, name in repos %}
-                        <li>
-                            <a href="/repos/{{id|urlencode}}/">{{name}}</a> --
-                            <a href="/repos/details/{{id|urlencode}}"
-                                >Details</a
-                            >
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% if not repos %}
-                    <small>No repos yet!</small>
-                    {% endif %}
-                </div>
-            </section>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/user">Profile</a>
+<a href="/views">Views</a>
+{% if g.user.is_verified %} {% if (g.user.role == 'a') %}
+<a href="/admin">Admin</a>
+{% endif %}
+<a href="/repos/add">Add repository</a>
+{% endif %} {% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Dashboard - {{g.user.login}}</h1>
+{% if not g.user.is_verified %}
+<h2><a href="/verify">Verify your account</a></h2>
+{% endif %}
+<section>
+    <div class="section_header">
+        <h2>Repos</h2>
+    </div>
+    <div class="section_content">
+        <ul>
+            {% for id, name in repos %}
+            <li>
+                <a href="/repos/{{id|urlencode}}/">{{name}}</a>
+                --
+                <a href="/repos/details/{{id|urlencode}}">Details</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if not repos %}
+        <small>No repos yet!</small>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

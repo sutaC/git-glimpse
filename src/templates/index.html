@@ -1,38 +1,17 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Home | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Git Glimpse</h1>
-            <nav>
-                {% if g.user %}
-                <a href="/dashboard">Dashboard</a>
-                {% else %}
-                <a href="/login">Login</a>
-                <a href="/register">Register</a>
-                {% endif %}
-            </nav>
-        </header>
-        <main>
-            <h2>Get started</h2>
-        </main>
-    </body>
-    <footer>
-        Made by:
-        <a
-            href="http://github.com/sutaC"
-            target="_blank"
-            rel="noopener noreferrer"
-            >sutaC</a
-        >
-    </footer>
-</html>
+<!-- prettier-ignore -->
+{% block nav %} 
+{% if g.user %}
+<a href="/dashboard">Dashboard</a>
+{% else %}
+<a href="/login">Login</a>
+<a href="/register">Register</a>
+{% endif %} {% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h2>Get started</h2>
+{% endblock %}

@@ -1,63 +1,46 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{{repo_name}} | Details | Git Glimpse</title>
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        <script src="{{url_for('static', filename='js/repos_details.js')}}" defer></script>
-    </head>
-    <body>
-        <header>
-            <h1>
-                {{g.user.login}}/<a href="/repos/{{repo_id|urlencode}}"
-                    >{{repo_name}}</a
-                >
-            </h1>
-            <nav>
-                <a href="/">Home</a>
-                <a href="/dashboard">Dashboard</a>
-            </nav>
-        </header>
-        <main>
-            <p>Name: {{repo_name}}</p>
-            <p>URL: {{url}}</p>
-            <p>Created at: {{created}}</p>
-            <p>Build status: 
-                <output id="status">{{build_status}}</output> 
-                {% if build_code %}
-                <i>({{build_code}})</i>
-                {% endif %}
-                <i class="spinner" id="status_spinner"></i> 
-            </p>
-            <p>Built at: {{build_timestamp}}</p>
-            <p>Size: {{build_size}}</p>
-            <p>Visits in this month: {{visits}}</p>
-            {% if hidden %}
-            <p class="status_failed">This repo is currently hidden, to make it visible schedule a build</p>
-            {% endif %}
-            <form action="/repos/build/{{repo_id|urlencode}}" method="post">
-                <button 
-                    type="submit" 
-                    {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
-                >Build</button> <i>(build
-            qouta: {{build_count}}/{{build_limit}})</i>
-            </form>
-            <form action="/repos/remove/{{repo_id|urlencode}}" method="post">
-                <button type="submit" >Remove</button>
-            </form>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}{{repo_name}} | Details | Git Glimpse{% endblock %}
+{% block head %}
+    <script src="{{url_for('static', filename='js/repos_details.js')}}" defer></script>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/dashboard">Dashboard</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>
+    {{g.user.login}}/<a href="/repos/{{repo_id|urlencode}}"
+        >{{repo_name}}</a
+    >
+</h1>
+<p>Name: {{repo_name}}</p>
+<p>URL: {{url}}</p>
+<p>Created at: {{created}}</p>
+<p>Build status: 
+    <output id="status">{{build_status}}</output> 
+    {% if build_code %}
+    <i>({{build_code}})</i>
+    {% endif %}
+    <i class="spinner" id="status_spinner"></i> 
+</p>
+<p>Built at: {{build_timestamp}}</p>
+<p>Size: {{build_size}}</p>
+<p>Visits in this month: {{visits}}</p>
+{% if hidden %}
+<p class="status_failed">This repo is currently hidden, to make it visible schedule a build</p>
+{% endif %}
+<form action="/repos/build/{{repo_id|urlencode}}" method="post">
+    <button 
+        type="submit" 
+        {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
+    >Build</button> <i>(build
+qouta: {{build_count}}/{{build_limit}})</i>
+</form>
+<form action="/repos/remove/{{repo_id|urlencode}}" method="post">
+    <button type="submit" >Remove</button>
+</form>
+{% endblock %}

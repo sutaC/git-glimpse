@@ -1,49 +1,25 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>User | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Profile | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>User - {{g.user.login}}</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-            </nav>
-        </header>
-        <main>
-            <p>Role: {{role}}</p>
-            <p>
-                Email: {{email or "-"}} {{"" if not email else "(verified)" if
-                g.user.is_verified else "(not verified)"}}
-            </p>
-            <p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
-            <p>Build quota: {{build_count}}/{{build_limit}}</p>
-            <hr />
-            <p><a href="/logout">Logout</a></p>
-            <hr />
-            {% if g.user.is_verified and g.user.login != "root" %}
-            <p><a href="/password/change">Change password</a></p>
-            {% endif %}
-            <hr />
-            {% if g.user.login != "root" %}
-            <p><a href="/user/remove">Remove account</a></p>
-            {% endif %}
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/dashboard">Dashboard</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Profile - {{g.user.login}}</h1>
+<p>Role: {{role}}</p>
+<p>
+    Email: {{email or "-"}} {{"" if not email else "(verified)" if g.user.is_verified else "(not
+    verified)"}}
+</p>
+<p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
+<p>Build quota: {{build_count}}/{{build_limit}}</p>
+<p><a href="/logout">Logout</a></p>
+{% if g.user.is_verified and g.user.login != "root" %}
+<p><a href="/password/change">Change password</a></p>
+{% endif %} {% if g.user.login != "root" %}
+<p><a href="/user/remove">Remove account</a></p>
+{% endif %}{% endblock %}

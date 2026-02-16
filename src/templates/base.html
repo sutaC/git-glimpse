@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}Git Glimpse{% endblock %}</title>
+        <link rel="stylesheet" href="{{url_for('static', filename='styles/global.css')}}" />
+        {% block head %}{% endblock %}
+    </head>
+    <body>
+        <header>
+            <a href="/"><h1>&gopf;it &gopf;limpse</h1></a>
+            <nav>{% block nav %}{% endblock %}</nav>
+        </header>
+        <hr />
+        <main>{% block content %}{% endblock %}</main>
+        <hr />
+        <footer>
+            Made by:
+            <a href="http://github.com/sutaC" target="_blank" rel="noopener noreferrer">sutaC</a>
+        </footer>
+    </body>
+</html>

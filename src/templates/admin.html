@@ -1,90 +1,64 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Admin | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% from "macros/table_builds.html" import table_builds %}
+<!-- prettier-ignore -->
+{% block title %}Admin | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        {% from "components/table_builds.html" import table_builds %}
-    </head>
-    <body>
-        <header>
-            <h1>Admin</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/admin/users">Users</a>
-                <a href="/admin/repos">Repos</a>
-                <a href="/admin/builds">Builds</a>
-            </nav>
-        </header>
-        <main>
-            <section>
-                <div class="section_header">
-                    <h2>Summary</h2>
-                </div>
-                <div class="section_content">
-                    <p>Total users: {{user_count}}</p>
-                    <p>Total repos: {{repo_count}}</p>
-                    <p>Total builds in last 24h: {{build_24h_count}}</p>
-                    <p>Total builds in last 7d: {{build_7d_count}}</p>
-                    <p>Total build sizes: {{build_sum_size}}</p>
-                    <p>Total build archive sizes: {{build_sum_archive_size}}</p>
-                    <p>Total extracted size: {{extracted_size}}</p>
-                    <p>Total computed size: {{total_computed_size}}</p>
-                </div>
-            </section>
-            <section>
-                <div class="section_header">
-                    <h2>Last cleanup</h2>
-                </div>
-                <div class="section_content">
-                    {% if cleanup_data %}
-                    <p>Started: {{cleanup_data.satarted}}</p>
-                    <p>Duration: {{cleanup_data.duration}}ms</p>
-                    <p>Removed repos: {{cleanup_data.cl_repos}}</p>
-                    <p>Removed extracted: {{cleanup_data.cl_extracted}}</p>
-                    <p>Removed builds: {{cleanup_data.cl_builds}}</p>
-                    <p>Removed sessions: {{cleanup_data.cl_session}}</p>
-                    <p>Removed tokens: {{cleanup_data.cl_tokens}}</p>
-                    <p>Removed repo views: {{cleanup_data.cl_repo_views}}</p>
-                    <p>
-                        Users flaggled inactive:
-                        {{cleanup_data.cl_flag_inactive_users}}
-                    </p>
-                    <p>
-                        Removed inactive users repo artifacts:
-                        {{cleanup_data.cl_inactive_users_repos}}
-                    </p>
-                    {% else %}
-                    <small>No cleanup data was found</small>
-                    {% endif %}
-                    <hr />
-                    <form action="/admin/cleanup" method="post">
-                        <button type="submit">Force cleanup</button>
-                    </form>
-                </div>
-            </section>
-            <section>
-                <div class="section_header">
-                    <h2>Latest activity</h2>
-                </div>
-                <div class="section_content">
-                    {{ table_builds(latest_activity) }}
-                </div>
-            </section>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/dashboard">Dashboard</a>
+<a href="/admin/users">Users</a>
+<a href="/admin/repos">Repos</a>
+<a href="/admin/builds">Builds</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Admin</h1>
+<section>
+    <div class="section_header">
+        <h2>Summary</h2>
+    </div>
+    <div class="section_content">
+        <p>Total users: {{user_count}}</p>
+        <p>Total repos: {{repo_count}}</p>
+        <p>Total builds in last 24h: {{build_24h_count}}</p>
+        <p>Total builds in last 7d: {{build_7d_count}}</p>
+        <p>Total build sizes: {{build_sum_size}}</p>
+        <p>Total build archive sizes: {{build_sum_archive_size}}</p>
+        <p>Total extracted size: {{extracted_size}}</p>
+        <p>Total computed size: {{total_computed_size}}</p>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2>Last cleanup</h2>
+    </div>
+    <div class="section_content">
+        {% if cleanup_data %}
+        <p>Started: {{cleanup_data.satarted}}</p>
+        <p>Duration: {{cleanup_data.duration}}ms</p>
+        <p>Removed repos: {{cleanup_data.cl_repos}}</p>
+        <p>Removed extracted: {{cleanup_data.cl_extracted}}</p>
+        <p>Removed builds: {{cleanup_data.cl_builds}}</p>
+        <p>Removed sessions: {{cleanup_data.cl_session}}</p>
+        <p>Removed tokens: {{cleanup_data.cl_tokens}}</p>
+        <p>Removed repo views: {{cleanup_data.cl_repo_views}}</p>
+        <p>Users flaggled inactive: {{cleanup_data.cl_flag_inactive_users}}</p>
+        <p>Removed inactive users repo artifacts: {{cleanup_data.cl_inactive_users_repos}}</p>
+        {% else %}
+        <small>No cleanup data was found</small>
+        {% endif %}
+        <hr />
+        <form action="/admin/cleanup" method="post">
+            <button type="submit">Force cleanup</button>
+        </form>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2>Latest activity</h2>
+    </div>
+    <div class="section_content">{{ table_builds(latest_activity) }}</div>
+</section>
+{% endblock %}

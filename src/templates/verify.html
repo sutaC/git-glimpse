@@ -1,45 +1,26 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Verify | Git Glimpse</title>
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Verify | Git Glimpse{% endblock %}
 
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-    </head>
-    <body>
-        <header>
-            <h1>Verify - {{g.user.login}}</h1>
-            <nav>
-                <a href="/dashboard">Dashboard</a>
-            </nav>
-        </header>
-        <main>
-            {% if is_verified %}
-            <p class="verification_success">Your account is verified!</p>
-            {% else %}
-            <p>Verify your account, check your email: {{email}}</p>
-            <form action="/verify/resend" method="post">
-                <p>Resend verification email</p>
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/dashboard">Dashboard</a>
+{% endblock %}
 
-                <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
-                {% if blocked %}
-                <small>Cannot yet send another email</small>
-                {% endif %}
-            </form>
-            {% endif %}
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Verify - {{g.user.login}}</h1>
+{% if is_verified %}
+<p class="verification_success">Your account is verified!</p>
+{% else %}
+<p>Verify your account, check your email: {{email}}</p>
+<form action="/verify/resend" method="post">
+    <p>Resend verification email</p>
+
+    <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
+    {% if blocked %}
+    <small>Cannot yet send another email</small>
+    {% endif %}
+</form>
+{% endif %}
+{% endblock %}

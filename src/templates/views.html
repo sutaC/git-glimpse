@@ -1,52 +1,34 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Views | Git Glimpse</title>
-        <link
-            rel="stylesheet"
-            href="{{url_for('static', filename='styles/global.css')}}"
-        />
-        <script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
-        {% from "components/table_views.html" import table_views %}
-    </head>
-    <body>
-        <header>
-            <h1>Views</h1>
-            <nav>
-                <a href="/">Home</a>
-                <a href="/user">User</a>
-                <a href="/dashboard">Dashboard</a>
-            </nav>
-        </header>
-        <main>
-            <section>
-                <div class="section_header">
-                    <h2>Views this month (total: {{cviews}})</h2>
-                    <div class="pager">
-                        <button
-                            id="pager-prev"
-                            {{'disabled' if page <= 0 else ''}}
-                        >Previous</button>
-                        <button
-                            id="pager-next"
-                            {{'disabled' if is_last else ''}}
-                            >Next</button>
-                        <span>Page: {{page}}</span>
-                    </div>
-                </div>
-                <div class="section_content">{{ table_views(views) }}</div>
-            </section>
-        </main>
-        <footer>
-            Made by:
-            <a
-                href="http://github.com/sutaC"
-                target="_blank"
-                rel="noopener noreferrer"
-                >sutaC</a
-            >
-        </footer>
-    </body>
-</html>
+{% extends "base.html" %}
+{% from "macros/table_views.html" import table_views %}
+{% block title %}Views | Git Glimpse{% endblock %}
+{% block head %} 
+    <script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block nav %} 
+<a href="/user">Profile</a>
+<a href="/dashboard">Dashboard</a> 
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Views</h1>
+<section>
+    <div class="section_header">
+        <h2>Views this month (total: {{cviews}})</h2>
+        <div class="pager">
+            <button
+                id="pager-prev"
+                {{'disabled' if page <= 0 else ''}}
+            >Previous</button>
+            <button
+                id="pager-next"
+                {{'disabled' if is_last else ''}}
+                >Next</button>
+            <span>Page: {{page}}</span>
+        </div>
+    </div>
+    <div class="section_content">{{ table_views(views) }}</div>
+</section>
+{% endblock %}
