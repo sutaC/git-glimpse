@@ -65,8 +65,10 @@
                     value="{{'false' if is_banned else 'true'}}"
                 />
                 {% if not is_banned %}
-                <label for="ban_reason">Ban reason:</label>
-                <textarea name="ban_reason" id="ban_reason"></textarea>
+                <div class="field">
+                    <label for="ban_reason">Ban reason:</label>
+                    <textarea name="ban_reason" id="ban_reason"></textarea>
+                </div>
                 {% endif %}
                 <button type="submit">
                     {{'Unban' if is_banned else 'Ban'}}

@@ -5,16 +5,29 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{% block title %}Git Glimpse{% endblock %}</title>
         <link rel="stylesheet" href="{{url_for('static', filename='styles/global.css')}}" />
+        <script src="{{url_for('static', filename='js/header_handler.js')}}" defer></script>
         {% block head %}{% endblock %}
     </head>
     <body>
         <header>
-            <a href="/"><h1>&gopf;it &gopf;limpse</h1></a>
+            <a href="/" class="logo">&gopf;it &gopf;limpse</a>
+            <button class="mobile" id="menu_toggle">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="24px"
+                    viewBox="0 -960 960 960"
+                    width="24px"
+                    fill="#e3e3e3"
+                >
+                    <path
+                        d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"
+                    />
+                </svg>
+            </button>
             <nav>{% block nav %}{% endblock %}</nav>
+            <div class="backdrop"></div>
         </header>
-        <hr />
         <main>{% block content %}{% endblock %}</main>
-        <hr />
         <footer>
             Made by:
             <a href="http://github.com/sutaC" target="_blank" rel="noopener noreferrer">sutaC</a>

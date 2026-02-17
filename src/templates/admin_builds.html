@@ -25,22 +25,29 @@
     </div>
     <div class="section_content">
         <form action="/admin/builds" method="get" class="filters">
-            <label for="status">Status: </label>
-            <select name="status" id="status">
-                <option value="" {{'selected' if status=="" else ''}}>any</option>
-                <option value="s" {{'selected' if status=="s" else ''}}>success</option>
-                <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
-                <option value="r" {{'selected' if status=="r" else ''}}>running</option>
-                <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
-                <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
-            </select>
-            <label for="repo">Repo id: </label>
-            <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
-            <label for="user">User login: </label>
-            <input type="text" name="user" id="user" value="{{user}}">
-            <label for="code">Code: </label>
-            <input type="text" name="code" id="code" value="{{code or ''}}">
-            <hr>
+            <div class="field">
+                <label for="status">Status: </label>
+                <select name="status" id="status">
+                    <option value="" {{'selected' if status=="" else ''}}>any</option>
+                    <option value="s" {{'selected' if status=="s" else ''}}>success</option>
+                    <option value="p" {{'selected' if status=="p" else ''}}>pending</option>
+                    <option value="r" {{'selected' if status=="r" else ''}}>running</option>
+                    <option value="f" {{'selected' if status=="f" else ''}}>failed</option>
+                    <option value="v" {{'selected' if status=="v" else ''}}>violation</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="repo">Repo id: </label>
+                <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
+            </div>
+            <div class="field">
+                <label for="user">User login: </label>
+                <input type="text" name="user" id="user" value="{{user}}">
+            </div>
+            <div class="field">
+                <label for="code">Code: </label>
+                <input type="text" name="code" id="code" value="{{code or ''}}">
+            </div>
             <button type="reset" >Reset</button>
             <button type="submit">Apply</button>
         </form>

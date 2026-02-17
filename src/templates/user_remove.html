@@ -13,8 +13,10 @@
 <h1>Remove account - {{user_login}}</h1>
 {% if user_login != "root" %}
 <form action="/user/remove" method="POST">
-    <label for="password">Password:</label>
-    <input type="password" name="password" id="password" />
+    <div class="field">
+        <label for="password">Password:</label>
+        <input type="password" name="password" id="password" />
+    </div>
     <button type="submit">Remove account</button>
 </form>
 {% else %}

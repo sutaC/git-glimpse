@@ -26,9 +26,7 @@
         <ul>
             {% for id, name in repos %}
             <li>
-                <a href="/repos/{{id|urlencode}}/">{{name}}</a>
-                --
-                <a href="/repos/details/{{id|urlencode}}">Details</a>
+                <a href="/repos/details/{{id|urlencode}}">{{name}}</a>
             </li>
             {% endfor %}
         </ul>
