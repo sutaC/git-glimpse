@@ -9,8 +9,7 @@
         <th>Size</th>
         <th>Timestamp</th>
     </tr>
-    {% for id, repo_id, user_id, user_login, status, code, timestamp, size in
-    builds %}
+    {% for id, repo_id, user_id, user_login, status, code, timestamp, size in builds %}
     <tr>
         <td>{{id}}</td>
         <td>
@@ -25,5 +24,5 @@
     {% endfor %}
 </table>
 {% else %}
-<small class="empty">Empty</small>
+<small class="empty_msg">Empty</small>
 {% endif %} {% endmacro %}

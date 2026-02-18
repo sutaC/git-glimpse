@@ -9,18 +9,22 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Verify - {{g.user.login}}</h1>
-{% if is_verified %}
-<p class="verification_success">Your account is verified!</p>
-{% else %}
-<p>Verify your account, check your email: {{email}}</p>
-<form action="/verify/resend" method="post">
-    <p>Resend verification email</p>
-
-    <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
-    {% if blocked %}
-    <small>Cannot yet send another email</small>
-    {% endif %}
-</form>
-{% endif %}
+<h1 class="centered">Verify account <span class="tag">'{{g.user.login}}'</span></h1>
+<section>
+    <div class="section_content centered">
+        {% if is_verified %}
+        <p class="verification_success">Your account is verified!</p>
+        {% else %}
+        <p class="centered">Verify your account, check your email: <span class="tag">{{email}}</span></p>
+        <form action="/verify/resend" method="post">
+            <p>Resend verification email:</p>
+            <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
+            {% if blocked %}
+            <br>
+            <small class="tag">Cannot yet send another email</small>
+            {% endif %}
+        </form>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}

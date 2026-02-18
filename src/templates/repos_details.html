@@ -12,35 +12,55 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>
-    {{g.user.login}}/<a href="/repos/{{repo_id|urlencode}}"
-        >{{repo_name}}</a
-    >
-</h1>
-<p>Name: {{repo_name}}</p>
-<p>URL: {{url}}</p>
-<p>Created at: {{created}}</p>
-<p>Build status: 
-    <output id="status">{{build_status}}</output> 
-    {% if build_code %}
-    <i>({{build_code}})</i>
-    {% endif %}
-    <i class="spinner" id="status_spinner"></i> 
-</p>
-<p>Built at: {{build_timestamp}}</p>
-<p>Size: {{build_size}}</p>
-<p>Visits in this month: {{visits}}</p>
-{% if hidden %}
-<p class="status_failed">This repo is currently hidden, to make it visible schedule a build</p>
-{% endif %}
-<form action="/repos/build/{{repo_id|urlencode}}" method="post">
-    <button 
-        type="submit" 
-        {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
-    >Build</button> <i>(build
-qouta: {{build_count}}/{{build_limit}})</i>
-</form>
-<form action="/repos/remove/{{repo_id|urlencode}}" method="post">
-    <button type="submit" >Remove</button>
-</form>
+<h1>Repository</h1>
+<section>
+    <div class="section_header">
+        <h2>Info</h2>
+    </div>
+    <div class="section_content">
+        <p><span class="tag">Name:</span> {{repo_name}}</p>
+        <p><span class="tag">URL:</span> {{url}}</p>
+        <p><span class="tag">Created at:</span> {{created}}</p>
+        <p><span class="tag">Visits in this month:</span> {{visits}}</p>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2 id="builds">Build</h2>
+    </div>
+    <div class="section_content">
+        <p><span class="tag">Build status:</span> 
+            <output id="status">{{build_status}}</output> 
+            {% if build_code %}
+            <i>({{build_code}})</i>
+            {% endif %}
+        </p>
+        <i class="spinner hidden" id="status_spinner"></i> 
+        <p><span class="tag">Built at:</span> {{build_timestamp}}</p>
+        <p><span class="tag">Size:</span> {{build_size}}</p>
+        {% if hidden %}
+        <p class="status_failed">This repo is currently hidden, to make it visible schedule a build</p>
+        {% endif %}
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2>Actions</h2>
+    </div>
+    <div class="section_content wrap">
+        {% if not hidden %}
+        <a href="/repos/{{repo_id|urlencode}}" class="buttonlike primary">View</a>
+        {% endif %}
+        <form action="/repos/build/{{repo_id|urlencode}}#builds" method="post">
+            <button 
+                type="submit" 
+                {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
+            >Build</button><br><small class="tag">(build
+        qouta: {{build_count}}/{{build_limit}})</small>
+        </form>
+        <form action="/repos/remove/{{repo_id|urlencode}}" method="post">
+            <button type="submit" >Remove</button>
+        </form>
+    </div>
+</section>
 {% endblock %}

@@ -4,19 +4,18 @@
         <h2>{{path.name}}</h2>
         {% if repo_id %}
         <a
-            href="/raw/{{repo_id|urlencode}}/{{parent_chain[-1]|urlencode}}{{path.name|urlencode}}"
-            >Raw</a
+            href="/raw/{{repo_id|urlencode}}/{{parent_chain[-1]|urlencode}}/{{path.name|urlencode}}"
+            class="buttonlike primary"
         >
+            Raw
+        </a>
         {% endif %}
     </div>
     <div class="section_content">
-        {% if is_text %} {% for line in
-        path.read_text(errors='skip').split('\n') %}
+        {% if is_text %} {% for line in path.read_text(errors='skip').split('\n') %}
         <span class="file_contents_line">{{line if line else ' '}}</span>
         {% endfor %} {% else %}
-        <small class="file_contents_nodisplay"
-            >Cannot display this file...</small
-        >
+        <small class="empty_msg">Cannot display this file...</small>
         {% endif %}
     </div>
 </section>

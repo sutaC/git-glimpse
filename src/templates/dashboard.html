@@ -14,7 +14,8 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Dashboard - {{g.user.login}}</h1>
+<h1>Dashboard</h1>
+<p class="subscript">Hello {{g.user.login}}!</p>
 {% if not g.user.is_verified %}
 <h2><a href="/verify">Verify your account</a></h2>
 {% endif %}
@@ -22,17 +23,24 @@
     <div class="section_header">
         <h2>Repos</h2>
     </div>
+    {% if repos %}
+    <ul class="section_list">
+        {% for id, name in repos %}
+        <li>
+            <a href="/repos/details/{{id|urlencode}}">
+                <img
+                    src="{{url_for('static', filename='images/repository_icon.svg')}}"
+                    alt="repository"
+                />
+                <span>{{name}}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
     <div class="section_content">
-        <ul>
-            {% for id, name in repos %}
-            <li>
-                <a href="/repos/details/{{id|urlencode}}">{{name}}</a>
-            </li>
-            {% endfor %}
-        </ul>
-        {% if not repos %}
-        <small>No repos yet!</small>
-        {% endif %}
+        <small class="empty_msg">No repos yet</small>
     </div>
+    {% endif %}
 </section>
 {% endblock %}

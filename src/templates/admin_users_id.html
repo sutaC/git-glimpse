@@ -3,7 +3,7 @@
 {% block title %}{{user_login}} | Users | Admin | Git Glimpse{% endblock %}
 
 <!-- prettier-ignore -->
-{% block nav %} 
+{% block nav %}
 <a href="/dashboard">Dashboard</a>
 <a href="/admin">Admin</a>
 <a href="/admin/users">Users</a>
@@ -13,83 +13,131 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>User - {{user_login}}</h1>
-<div><p>Role: {{role}}</p>
-    {% if user_login != "root" %}
-    <form action="/admin/users/{{user_id|urlencode}}" method="post">
-        <input
-            type="hidden"
-            name="set_role"
-            value="{{'u' if role == 'admin' else 'a'}}"
-        />
-        <button
-            type="submit"
-            {{"disabled" if is_banned or not is_verified else ""}}
-        >
-            {{'Demote to user' if role == 'admin' else 'Promote to admin'}}
-        </button>
-    </form>
-    {% endif %}
-</div>
-<div>
-    <p>Email: {{email or "-"}} {{"" if not email else "(verified)" if
-    is_verified else "(not verified)"}}</p>
-    {% if email and role != 'admin' %}
-    <form action="/admin/users/{{user_id|urlencode}}" method="post">
-        <input
-            type="hidden"
-            name="set_verified"
-            value="{{'false' if is_verified else 'true'}}"
-            />
-            <button type="submit">
-                {{'Unverify' if is_verified else 'Verify'}}
-            </button>
-    </form>
-    {% endif %}
-</div>
-<p>Inactive: {{'yes' if inactive else 'no'}}</p>
+<h1>User</h1>
+<section>
+    <div class="section_header">
+        <h2>Info</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            <span class="tag">Login:</span>
+            {{user_login}}
+        </p>
+        <p>
+            <span class="tag">Email:</span>
+            {{email or "-"}}
+            <small class="tag">
+                {{"" if not email else "(verified)" if is_verified else "(not verified)"}}
+            </small>
+        </p>
+        <p>
+            <span class="tag">Role:</span>
+            {{role}}
+        </p>
+        <p>
+            <span class="tag">Created at:</span>
+            {{created}}
+        </p>
+        <p>
+            <span class="tag">Inactive:</span>
+            {{'yes' if inactive else 'no'}}
+        </p>
+        <p>
+            <span class="tag">Last login at:</span>
+            {{last_login}}
+        </p>
+        <p>
+            <span class="tag">Repo quota:</span>
+            {{repo_count}}/{{repo_limit}}
+        </p>
+        <p>
+            <span class="tag">Build quota:</span>
+            {{build_count}}/{{build_limit}}
+        </p>
+    </div>
+</section>
+
 {% if role != 'admin' %}
-<p>
-    <details>
-        <summary>Banned:  {{"yes" if is_banned else "no"}}</summary>
-        <div>
-            {% if is_banned %}
-            <p>Banned by: {% if banned_by %}{{banned_by}}{% else %}<i>Unknown</i>{% endif %}</p>
-            <p>Banned at: {{banned_at}}</p>
-            <p>Ban reason: {% if ban_reason %} '{{ban_reason}}' {% else %}<i>Not provided</i>{% endif %}</p>
+<section>
+    <div class="section_header">
+        <h2>Bans</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            <span class="tag">Banned:</span>
+            {{"yes" if is_banned else "no"}}
+        </p>
+        {% if is_banned %}
+        <p>
+            <span class="tag">Banned by:</span>
+            {% if banned_by %}{{banned_by}}{% else %}
+            <i>Unknown</i>
             {% endif %}
-            <form action="/admin/users/{{user_id|urlencode}}" method="post">
-                <input
-                    type="hidden"
-                    name="set_banned"
-                    value="{{'false' if is_banned else 'true'}}"
-                />
-                {% if not is_banned %}
-                <div class="field">
-                    <label for="ban_reason">Ban reason:</label>
-                    <textarea name="ban_reason" id="ban_reason"></textarea>
-                </div>
-                {% endif %}
-                <button type="submit">
-                    {{'Unban' if is_banned else 'Ban'}}
-                </button>
-            </form>
-<div>
-    <p>Build quota: {{build_count}}/{{build_limit}}</p>
-    <form action="/admin/users/{{user_id|urlencode}}" method="post">
-        <input type="hidden" name="expire" value="true" />
-        <button type="submit" {{'' if build_count else 'disabled'}}>Clear build quota</button>
-    </form>
-</div>
-<p>Last login at: {{last_login}}</p>
-<p>Created at: {{created}}</p>
-<p>
-    <a href="/admin/repos?user={{user_login|urlencode}}"
-        >View user repos</a
-    >
-</p>         </div>
-    </details>
-</p>
+        </p>
+        <p>
+            <span class="tag">Banned at:</span>
+            {{banned_at}}
+        </p>
+        <p>
+            <span class="tag">Ban reason:</span>
+            {% if ban_reason %} '{{ban_reason}}' {% else %}
+            <i>Not provided</i>
+            {% endif %}
+        </p>
+        <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            <input type="hidden" name="set_banned" value="false" />
+            <button type="submit">Unban</button>
+        </form>
+        {% else %}
+        <hr>
+        <form action="/admin/users/{{user_id|urlencode}}" method="post" class="centered">
+            <input type="hidden" name="set_banned" value="true" />
+            <div class="field">
+                <label for="ban_reason">Ban reason:</label>
+                <textarea name="ban_reason" id="ban_reason"></textarea>
+            </div>
+            <button type="submit">Ban</button>
+        </form>
+        {% endif %}
+    </div>
+</section>
 {% endif %}
-<p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
+
+<section>
+    <div class="section_header">
+        <h2>Actions</h2>
+    </div>
+    <div class="section_content wrap">
+        {% if email and role != 'admin' %}
+        <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            <input type="hidden" name="set_verified" value="{{'false' if is_verified else 'true'}}" />
+            <button type="submit">{{'Unverify' if is_verified else 'Verify'}}</button>
+        </form>
+        {% endif %}
+
+        {% if user_login != "root" %}
+        <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            <input
+                type="hidden"
+                name="set_role"
+                value="{{'u' if role == 'admin' else 'a'}}"
+            />
+            <button
+                type="submit"
+                {{"disabled" if is_banned or not is_verified else ""}}
+            >
+                {{'Demote to user' if role == 'admin' else 'Promote to admin'}}
+            </button>
+        </form>
+        {% endif %}
+
+        <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            <input type="hidden" name="expire" value="true" />
+            <button type="submit" {{'' if build_count else 'disabled'}}>Clear build quota</button>
+        </form>
+
+        <a href="/admin/repos?user={{user_login|urlencode}}" class="buttonlike">View user repos</a>
+    </div>
+</section>
+
 {% endblock %}

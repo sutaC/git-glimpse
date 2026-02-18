@@ -1,6 +1,6 @@
 services:
     web:
-        build: git-glimpse
+        build: .
         command: ["gunicorn", "-b", "0.0.0.0:5000", "src.wsgi:app"]
         volumes:
             - data_volume:/app/data
@@ -9,7 +9,7 @@ services:
         env_file:
             - .env
     build_worker:
-        build: git-glimpse
+        build: .
         command: ["python", "-m", "src.build_worker"]
         volumes:
             - data_volume:/app/data
@@ -17,7 +17,7 @@ services:
             - .env
         stop_grace_period: 30s
     cleanup_worker:
-        build: git-glimpse
+        build: .
         profiles:
             - manual
         command: ["python", "-m", "src.cleanup_worker"]
@@ -26,7 +26,7 @@ services:
         env_file:
             - .env
     root_passwd:
-        image: git-glimpse
+        image: .
         profiles:
             - manual
         entrypoint: ["python", "scripts/root_passwd.py"]

@@ -20,14 +20,38 @@
         <h2>Summary</h2>
     </div>
     <div class="section_content">
-        <p>Total users: {{user_count}}</p>
-        <p>Total repos: {{repo_count}}</p>
-        <p>Total builds in last 24h: {{build_24h_count}}</p>
-        <p>Total builds in last 7d: {{build_7d_count}}</p>
-        <p>Total build sizes: {{build_sum_size}}</p>
-        <p>Total build archive sizes: {{build_sum_archive_size}}</p>
-        <p>Total extracted size: {{extracted_size}}</p>
-        <p>Total computed size: {{total_computed_size}}</p>
+        <p>
+            <span class="tag">Total users:</span>
+            {{user_count}}
+        </p>
+        <p>
+            <span class="tag">Total repos:</span>
+            {{repo_count}}
+        </p>
+        <p>
+            <span class="tag">Total builds in last 24h:</span>
+            {{build_24h_count}}
+        </p>
+        <p>
+            <span class="tag">Total builds in last 7d:</span>
+            {{build_7d_count}}
+        </p>
+        <p>
+            <span class="tag">Total build sizes:</span>
+            {{build_sum_size}}
+        </p>
+        <p>
+            <span class="tag">Total build archive sizes:</span>
+            {{build_sum_archive_size}}
+        </p>
+        <p>
+            <span class="tag">Total extracted size:</span>
+            {{extracted_size}}
+        </p>
+        <p>
+            <span class="tag">Total computed size:</span>
+            {{total_computed_size}}
+        </p>
     </div>
 </section>
 <section>
@@ -36,20 +60,50 @@
     </div>
     <div class="section_content">
         {% if cleanup_data %}
-        <p>Started: {{cleanup_data.satarted}}</p>
-        <p>Duration: {{cleanup_data.duration}}ms</p>
-        <p>Removed repos: {{cleanup_data.cl_repos}}</p>
-        <p>Removed extracted: {{cleanup_data.cl_extracted}}</p>
-        <p>Removed builds: {{cleanup_data.cl_builds}}</p>
-        <p>Removed sessions: {{cleanup_data.cl_session}}</p>
-        <p>Removed tokens: {{cleanup_data.cl_tokens}}</p>
-        <p>Removed repo views: {{cleanup_data.cl_repo_views}}</p>
-        <p>Users flaggled inactive: {{cleanup_data.cl_flag_inactive_users}}</p>
-        <p>Removed inactive users repo artifacts: {{cleanup_data.cl_inactive_users_repos}}</p>
+
+        <p>
+            <span class="tag">Started:</span>
+            {{cleanup_data.satarted}}
+        </p>
+        <p>
+            <span class="tag">Duration:</span>
+            {{cleanup_data.duration}}ms
+        </p>
+        <p>
+            <span class="tag">Removed repos:</span>
+            {{cleanup_data.cl_repos}}
+        </p>
+        <p>
+            <span class="tag">Removed extracted:</span>
+            {{cleanup_data.cl_extracted}}
+        </p>
+        <p>
+            <span class="tag">Removed builds:</span>
+            {{cleanup_data.cl_builds}}
+        </p>
+        <p>
+            <span class="tag">Removed sessions:</span>
+            {{cleanup_data.cl_session}}
+        </p>
+        <p>
+            <span class="tag">Removed tokens:</span>
+            {{cleanup_data.cl_tokens}}
+        </p>
+        <p>
+            <span class="tag">Removed repo views:</span>
+            {{cleanup_data.cl_repo_views}}
+        </p>
+        <p>
+            <span class="tag">Users flaggled inactive:</span>
+            {{cleanup_data.cl_flag_inactive_users}}
+        </p>
+        <p>
+            <span class="tag">Removed inactive users repo artifacts:</span>
+            {{cleanup_data.cl_inactive_users_repos}}
+        </p>
         {% else %}
-        <small>No cleanup data was found</small>
+        <small class="empty_msg">No cleanup data was found</small>
         {% endif %}
-        <hr />
         <form action="/admin/cleanup" method="post">
             <button type="submit">Force cleanup</button>
         </form>

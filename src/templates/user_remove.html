@@ -10,9 +10,9 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Remove account - {{user_login}}</h1>
+<h1 class="centered">Remove account '{{user_login}}'</h1>
 {% if user_login != "root" %}
-<form action="/user/remove" method="POST">
+<form action="/user/remove" method="POST" class="standalone">
     <div class="field">
         <label for="password">Password:</label>
         <input type="password" name="password" id="password" />

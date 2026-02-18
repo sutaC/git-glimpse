@@ -11,8 +11,7 @@
         <th>Created</th>
         <th>Repos</th>
     </tr>
-    {% for id, login, email, is_verified, is_banned, role, created, inactive in
-    users %}
+    {% for id, login, email, is_verified, is_banned, role, created, inactive in users %}
     <tr>
         <td>{{id}}</td>
         <td><a href="/admin/users/{{id|urlencode}}">{{login}}</a></td>
@@ -27,5 +26,5 @@
     {% endfor %}
 </table>
 {% else %}
-<small class="empty">Empty</small>
+<small class="empty_msg">Empty</small>
 {% endif %} {% endmacro %}

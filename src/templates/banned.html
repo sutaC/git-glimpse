@@ -4,16 +4,31 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Banned</h1>
-<p>Your account '{{g.user.login}}' have been banned from Git Glimpse.</p>
-{% if ban_reason %}
-<p>Reason: {{ban_reason}}</p>
-{% endif %}
-<p>Date: {{banned_at}}</p>
-<p>
-    If you believe this is a mistake, {% if contact %}
-    <a href="mailto:{{contact}}">contact support</a>
-    {% else %}contact support{% endif %}.
-</p>
-<p><a href="/logout">Logout</a></p>
+<h1 class="centered">Banned</h1>
+<section class="centered">
+    <div class="section_content">
+        <p>
+            Your account
+            <span class="tag">'{{g.user.login}}'</span>
+            has been banned from Git Glimpse.
+        </p>
+        {% if ban_reason %}
+        <p>
+            <span class="tag">Reason:</span>
+            {{ban_reason}}
+        </p>
+        {% endif %}
+
+        <p>
+            <span class="tag">Date:</span>
+            {{banned_at}}
+        </p>
+        <p>
+            If you believe this is a mistake, {% if contact %}
+            <a href="mailto:{{contact}}">contact support</a>
+            {% else %}contact support{% endif %}.
+        </p>
+        <p><a href="/logout" class="buttonlike">Logout</a></p>
+    </div>
+</section>
 {% endblock %}

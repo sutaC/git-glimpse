@@ -4,8 +4,8 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Login</h1>
-<form action="/login{{ '?next=' + next_url if next_url else ''}}" method="post">
+<h1 class="centered">Login</h1>
+<form action="/login{{ '?next=' + next_url if next_url else ''}}" method="post" class="standalone">
     <p class="error_msg">{{error_msg}}</p>
     <div class="field">
         <label for="login">Login:</label>
@@ -17,12 +17,12 @@
     </div>
     <button type="submit">Login</button>
 </form>
-<p>
+<p class="centered">
     Don't have an account?
     <a href="/register">Register</a>
     !
 </p>
-<p>
+<p class="centered">
     Forgot password?
     <a href="/password/recover">Recover</a>
     !

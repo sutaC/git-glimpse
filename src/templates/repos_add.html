@@ -9,8 +9,8 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Add new repository</h1>
-<form action="/repos/add" method="post">
+<h1 class="centered">Add repository</h1>
+<form action="/repos/add" method="post" class="standalone">
     <p class="error_msg">{{error_msg}}</p>
     <div class="field">
         <label for="url">Url:</label>

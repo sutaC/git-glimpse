@@ -82,7 +82,7 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
     > Runs cleanup worker once per day
 4. Start the app:
     ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml up
     ```
 5. Reset root password:
 

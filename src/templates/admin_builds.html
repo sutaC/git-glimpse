@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
 {% from "macros/table_builds.html" import table_builds %}
+{% from "macros/pager.html" import pager %}
 <!-- prettier-ignore -->
 {% block title %}Builds | Admin | Git Glimpse{% endblock %}
 <!-- prettier-ignore -->
@@ -18,15 +19,16 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Admin - Builds</h1>
+<h1>Admin</h1>
+<p class="subscript">Builds</p>
 <section>
     <div class="section_header">
         <h2>Filters</h2>
     </div>
     <div class="section_content">
-        <form action="/admin/builds" method="get" class="filters">
+        <form action="/admin/builds" method="get">
             <div class="field">
-                <label for="status">Status: </label>
+                <label for="status">Status:</label>
                 <select name="status" id="status">
                     <option value="" {{'selected' if status=="" else ''}}>any</option>
                     <option value="s" {{'selected' if status=="s" else ''}}>success</option>
@@ -37,37 +39,29 @@
                 </select>
             </div>
             <div class="field">
-                <label for="repo">Repo id: </label>
+                <label for="repo">RepoID:</label>
                 <input type="text" name="repo" id="repo" value="{{repo}}" minlength="22" maxlength="22">
             </div>
             <div class="field">
-                <label for="user">User login: </label>
+                <label for="user">Login:</label>
                 <input type="text" name="user" id="user" value="{{user}}">
             </div>
             <div class="field">
-                <label for="code">Code: </label>
+                <label for="code">Code:</label>
                 <input type="text" name="code" id="code" value="{{code or ''}}">
             </div>
-            <button type="reset" >Reset</button>
-            <button type="submit">Apply</button>
+            <div class="field">
+                <button type="reset" >Reset</button>
+                <button type="submit">Apply</button>
+            </div>
         </form>
     </div>
 </section>
 
 <section>
-    <div class="section_header">
-        <h2>Builds</h2>
-        <div class="pager">
-            <button
-                id="pager-prev"
-                {{'disabled' if page <= 0 else ''}}
-            >Previous</button>
-            <button
-                id="pager-next"
-                {{'disabled' if is_last else ''}}
-                >Next</button>
-            <span>Page: {{page}}</span>
-        </div>
+    <div class="section_header" aria-labelledby="hDisplay">
+        <h2 id="hDisplay">Builds</h2>
+        {{ pager(page, is_last) }}
     </div>
     <div class="section_content">{{ table_builds(builds) }}</div>
 </section>

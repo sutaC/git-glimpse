@@ -4,7 +4,7 @@ const status_fetch_url = new URL(location);
 status_fetch_url.searchParams.append("status", "true");
 
 const fetch_status = async () => {
-    elt_status_spinner.style.setProperty("visibility", "visible");
+    elt_status_spinner.classList.remove("hidden");
     try {
         const res = await fetch(status_fetch_url);
         const stat = await res.text();
@@ -16,5 +16,4 @@ const fetch_status = async () => {
     setTimeout(fetch_status, 3000);
 };
 
-if (elt_status.innerText == "pending" || elt_status.innerText == "running")
-    fetch_status();
+if (elt_status.innerText == "pending" || elt_status.innerText == "running") fetch_status();

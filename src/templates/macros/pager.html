@@ -1,0 +1,15 @@
+{% macro pager(page, is_last) %}
+<div class="pager">
+    <small>Page: {{page}}</small>
+    <button
+        id="pager-prev"
+        class="primary"
+        {{'disabled' if page <= 0 else ''}}
+    >Previous</button>
+    <button
+        id="pager-next"
+        class="primary"
+        {{'disabled' if is_last else ''}}
+        >Next</button>
+</div>
+{% endmacro %}

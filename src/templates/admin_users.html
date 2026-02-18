@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
 {% from "macros/table_users.html" import table_users %}
+{% from "macros/pager.html" import pager %}
 <!-- prettier-ignore -->
 {% block title %}Users | Admin | Git Glimpse{% endblock %}
 <!-- prettier-ignore -->
@@ -18,15 +19,16 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Admin - Users</h1>
+<h1>Admin</h1>
+<p class="subscript">Users</p>
 <section>
     <div class="section_header">
         <h2>Filters</h2>
     </div>
     <div class="section_content">
-        <form action="/admin/users" method="get" class="filters">
+        <form action="/admin/users" method="get">
             <div class="field">
-                <label for="verified">Verified: </label>
+                <label for="verified">Verified:</label>
                 <select name="verified" id="verified">
                     <option value="" {{'selected' if verified=="" else ''}}>any</option>
                     <option value="1" {{'selected' if verified=="1" else ''}}>yes</option>
@@ -34,7 +36,7 @@
                 </select>
             </div>
             <div class="field">
-                <label for="banned">Banned: </label>
+                <label for="banned">Banned:</label>
                 <select name="banned" id="banned">
                     <option value="" {{'selected' if banned=="" else ''}}>any</option>
                     <option value="1" {{'selected' if banned=="1" else ''}}>yes</option>
@@ -42,7 +44,7 @@
                 </select>
             </div>
             <div class="field">
-                <label for="inactive">Inactive: </label>
+                <label for="inactive">Inactive:</label>
                 <select name="inactive" id="inactive">
                     <option value="" {{'selected' if inactive=="" else ''}}>any</option>
                     <option value="1" {{'selected' if inactive=="1" else ''}}>yes</option>
@@ -50,7 +52,7 @@
                 </select>
             </div>
             <div class="field">
-                <label for="role">Role: </label>
+                <label for="role">Role:</label>
                 <select name="role" id="role">
                     <option value="" {{'selected' if role=="" else ''}}>any</option>
                     <option value="u" {{'selected' if role=="u" else ''}}>user</option>
@@ -58,33 +60,25 @@
                 </select>
             </div>
             <div class="field">
-                <label for="login">Login: </label>
+                <label for="login">Login:</label>
                 <input type="text" name="login" id="login" value="{{login}}">
             </div>
             <div class="field">
-                <label for="email">Email: </label>
+                <label for="email">Email:</label>
                 <input type="text" name="email" id="email" value="{{email}}">
             </div>
-            <button type="reset" >Reset</button>
-            <button type="submit">Apply</button>
+            <div class="field">
+                <button type="reset" >Reset</button>
+                <button type="submit">Apply</button>
+            </div>
         </form>
     </div>
 </section>
 
 <section>
-<div class="section_header">
-    <h2>Users</h2>
-    <div class="pager">
-        <button
-            id="pager-prev"
-            {{'disabled' if page <= 0 else ''}}
-        >Previous</button>
-        <button
-            id="pager-next"
-            {{'disabled' if is_last else ''}}
-            >Next</button>
-        <span>Page: {{page}}</span>
-    </div>
+<div class="section_header" aria-labelledby="hDisplay">
+    <h2 id="hDisplay">Users</h2>
+    {{ pager(page, is_last) }}
 </div>
 <div class="section_content">{{ table_users(users) }}</div>
 </section>

@@ -9,17 +9,54 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h1>Profile - {{g.user.login}}</h1>
-<p>Role: {{role}}</p>
-<p>
-    Email: {{email or "-"}} {{"" if not email else "(verified)" if g.user.is_verified else "(not
-    verified)"}}
-</p>
-<p>Repo quota: {{repo_count}}/{{repo_limit}}</p>
-<p>Build quota: {{build_count}}/{{build_limit}}</p>
-<p><a href="/logout">Logout</a></p>
-{% if g.user.is_verified and g.user.login != "root" %}
-<p><a href="/password/change">Change password</a></p>
-{% endif %} {% if g.user.login != "root" %}
-<p><a href="/user/remove">Remove account</a></p>
-{% endif %}{% endblock %}
+<h1>Profile</h1>
+<section>
+    <div class="section_header">
+        <h2>Account</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            <span class="tag">Login:</span>
+            {{g.user.login}}
+        </p>
+        <p>
+            <span class="tag">Role:</span>
+            {{role}}
+        </p>
+        <p>
+            <span class="tag">Email:</span>
+            {{email or "-"}}
+            <small class="tag">
+                {{"" if not email else "(verified)" if g.user.is_verified else "(not verified)"}}
+            </small>
+        </p>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2>Quotas</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            <span class="tag">Repo quota:</span>
+            {{repo_count}}/{{repo_limit}}
+        </p>
+        <p>
+            <span class="tag">Build quota:</span>
+            {{build_count}}/{{build_limit}}
+        </p>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2>Acctions</h2>
+    </div>
+    <div class="section_content wrap">
+        <p><a href="/logout" class="buttonlike primary">Logout</a></p>
+        {% if g.user.is_verified and g.user.login != "root" %}
+        <p><a href="/password/change" class="buttonlike">Change password</a></p>
+        {% endif %} {% if g.user.login != "root" %}
+        <p><a href="/user/remove" class="buttonlike">Remove account</a></p>
+        {% endif %}{% endblock %}
+    </div>
+</section>
