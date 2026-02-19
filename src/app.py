@@ -89,30 +89,13 @@ def repos(repo_id: str, sub: str):
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
     except Exception: abort(404)
-    # Makes list of path urls to all parent dirs
-    rel_parts = path.relative_to(REPO_PATH / repo_id / "extracted").parts[:-1]  # exclude file itself
-    parentchain = ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
-    # Reads dir children (for sorting)
-    children = None
-    if path.is_dir(): children = sorted(path.iterdir())
-    # Finds readme child of dir if exists
-    readme_child = None
-    if children:
-        for ch in children:
-            if ch.name.lower() == "readme.md":
-                readme_child = ch
-                break
-    # Respone
+    # Create response
     respone =  Response(render_template(
         "repos.html", 
-        repo_name=repo.name,
-        path_str=str(subpath).lstrip("."),
-        path=path,
         repo_id=repo_id,
-        parent_chain=parentchain,
-        is_text=utils.is_text(path),
-        readme_child=readme_child,
-        children=children
+        repo_name=repo.name,
+        parent_chain=utils.build_parentchain(path, repo_path),
+        section=utils.build_section(path)
     ))
     # Handles repos views
     day = int(time.time() // 86400)

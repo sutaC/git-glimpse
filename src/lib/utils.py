@@ -1,13 +1,101 @@
 from src.lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
 from datetime import datetime, timezone
+from urllib.parse import quote 
+from markdown import markdown
 from hashlib import sha256
 from pathlib import Path
 import requests
+import bleach
 import re
 
+ALLOWED_TAGS = [
+    "p", "pre", "code", "blockquote", "span",
+    "ul", "ol", "li",
+    "strong", "em",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "a", "hr", "br"
+]
+ALLOWED_ATTRS = {
+    "a": ["href", "title", "rel"],
+    "code": ["class"],
+    "span": ["class"],
+}
 GITHUB_URL_REGEX = re.compile(r'^(?:https:\/\/github\.com\/|git@github\.com:)[\w\-]+\/[\w\-]+(?:\.git)?$')
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+# --- repo sections ---
+class Section:
+    def __init__(self, path: Path) -> None:
+        self.name = path.name
+        self.path = path
+        self.type: str
+        self.icon: str
+        self.is_root: bool
+        # Makes url
+        parts = path.parts
+        ext = parts.index("extracted")
+        rid = parts[ext-1]
+        rel_path = '/'.join(quote(p) for p in parts[ext+1:-1])
+        self.url = f"/{rid}/{rel_path}/{self.name}"
+        self.parent_url = f"/{rid}/{rel_path}"
+
+class FileSection(Section):
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.type = "file"
+        self.icon = "file_icon.svg"
+        self.is_markdown = self.path.suffix.lower() == ".md"
+        self._is_text: bool | None = None
+        self._content: str | None = None
+        self.is_root = False
+
+    def is_text(self) -> bool:
+        if self._is_text is not None:
+            return self._is_text
+        self._is_text = True
+        try:
+            with self.path.open("r", encoding="utf-8", errors="strict") as f:
+                f.read(1024)  
+        except UnicodeDecodeError:
+            self._is_text = False
+        return self._is_text
+
+    def load_content(self) -> str:
+        if not self.is_text(): raise ValueError("Cannot load contents of non-text file")
+        if self._content: return self._content
+        content = self.path.read_text(errors="skip")
+        if self.is_markdown: 
+            content = render_markdown(content)
+        self._content = content
+        return self._content
+
+class DirSection(Section):
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
+        self.type = "dir"
+        self.icon = "folder_icon.svg"
+        self.is_root = path.name == "extracted"
+        self.children: list[Section] = sorted(
+            (build_section(ch) for ch in path.iterdir()),
+            key=lambda s: (s.type == "file", s.name.lower())
+        )
+
+    def find_readme_child(self) -> FileSection | None:
+        for ch in self.children:
+            if isinstance(ch, FileSection) and ch.name.lower() == "readme.md":
+                return ch
+        return None
+    
+def build_section(path: Path) -> Section:
+    if path.is_file(): return FileSection(path)
+    else: return DirSection(path)
+    
+def build_parentchain(path: Path, repo_root: Path) -> list[str]:
+    rel_parts = path.relative_to(repo_root / "extracted").parts[:-1]  # exclude file itself
+    return ['/'.join(rel_parts[:i+1]) for i in range(len(rel_parts))]
+
+# --- validatiors ---
 def is_valid_repo_url(url: str) -> bool:
     return bool(GITHUB_URL_REGEX.match(url))
 
@@ -25,15 +113,7 @@ def is_valid_password(password: str) -> str | None:
 def is_vaild_status(status: str) -> bool:
     return status in ['p', 's', 'v', 'f', 'r']
 
-def is_text(path: Path) -> bool:
-    if path.is_file():
-        try:
-            with path.open("r", encoding="utf-8", errors="strict") as f:
-                f.read(1024)  
-        except UnicodeDecodeError:
-            return False
-    return True
-
+# --- parsers ---
 def timestamp_to_str(timestamp: int) -> str:
     if not timestamp: return "?"
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -119,3 +199,22 @@ def viewer_hash(day: int, user_id: int | None = None, ip: str | None = None, ua:
     assert user_id or (ip and ua)
     if user_id: return sha256(f"u:{user_id}:{day}".encode()).hexdigest()
     return sha256(f"a:{ip}:{ua}:{day}".encode()).hexdigest()
+
+def render_markdown(text: str) -> str:
+    text = markdown(
+        text, 
+        extensions=["fenced_code", "tables", "codehilite"],
+        output_format="html"
+    )
+    text = bleach.clean(
+        text,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        protocols=["http", "https", "mailto"],
+        strip=True
+    )
+    text = bleach.linkify(
+        text, 
+        callbacks=[bleach.callbacks.nofollow, bleach.callbacks.target_blank]
+    )
+    return text

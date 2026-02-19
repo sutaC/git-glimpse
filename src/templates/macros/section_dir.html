@@ -1,29 +1,28 @@
-{% macro section_dir(path, repo_id, parent_chain, repo_name, path_str, children) %}
+{% macro section_dir(section, repo_id, repo_name) %}
 <section>
     <div class="section_header">
-        <h2>{% if path_str %} {{path.name}} {% else %} {{repo_name}} {% endif %}</h2>
-        {% if not path_str %}
+        <h2>{% if not section.is_root %} {{section.name}} {% else %} {{repo_name}} {% endif %}</h2>
+        {% if section.is_root %}
         <a href="/raw/{{repo_id|urlencode}}/" class="buttonlike primary">Download</a>
         {% endif %}
     </div>
     <div>
         <ul class="section_list">
-            {% if path_str %}
-            <li><a href="..">..</a></li>
-            {% endif %} {% for child in children %} {% if child.name != ".git" %}
+            {% if not section.is_root %}
+            <li><a href="/repos{{section.parent_url}}">..</a></li>
+            <!-- prettier-ignore -->
+            {% endif %}
+            {% for child in section.children %}
             <li>
-                <a
-                    href="/repos/{{repo_id|urlencode}}/{{(parent_chain[-1]+'/' if parent_chain else '')|urlencode}}{{(path.name+'/' if path.name != 'extracted' else '')|urlencode}}{{child.name|urlencode}}{{('/' if child.is_dir() else '')|urlencode}}"
-                    class="list_item"
-                >
+                <a href="/repos{{child.url}}" class="list_item">
                     <img
-                        src="{{url_for('static', filename='images/folder_icon.svg') if child.is_dir() else url_for('static', filename='images/file_icon.svg')}}"
-                        alt="{{'dir' if child.is_dir() else 'file'}}"
+                        src="{{url_for('static', filename=('images/' + child.icon))}}"
+                        alt="{{child.type}}"
                     />
                     <span>{{child.name}}</span>
                 </a>
             </li>
-            {% endif %} {% endfor %}
+            {% endfor %}
         </ul>
     </div>
 </section>

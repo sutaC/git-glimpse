@@ -4,7 +4,7 @@
 <!-- prettier-ignore -->
 {% from "macros/section_dir.html" import section_dir %}
 <!-- prettier-ignore -->
-{% block title %}{{path_str+' | ' if path_str else '' }}{{repo_name}} | Git Glimpse{% endblock %}
+{% block title %}{{section.name}} | {{repo_name}} | Git Glimpse{% endblock %}
 
 <!-- prettier-ignore -->
 {% block nav %} 
@@ -13,30 +13,34 @@
 {% else %}
 <a href="/login">Login</a>
 <a href="/register">Register</a>
-{% endif %} {% endblock %}
-
 <!-- prettier-ignore -->
+{% endif %} 
+{% endblock %}
+
 {% block content %}
 <h1 class="curr_path">
-    {% if path_str %}
-    <a href="/repos/{{repo_id|urlencode}}/">{{repo_name}}</a>
     <!-- prettier-ignore -->
-    {% else %} 
+    {% if section.is_root %}
     {{repo_name}}
+    {% else %}
+    <a href="/repos/{{repo_id}}/">{{repo_name}}</a>
     <!-- prettier-ignore -->
     {% endif %}
-    <!-- prettier-ignore -->
-    {% for parent in parent_chain %} /
-    <a href="/repos/{{repo_id|urlencode}}/{{parent|urlencode}}">{{parent.rsplit('/',1)[-1]}}</a>
+    {% for parent in parent_chain %} 
+    /
+    <a href="/repos/{{repo_id}}/{{parent|urlencode}}">{{parent.rsplit('/',1)[-1]}}</a>
     {% endfor %}
     <!-- prettier-ignore -->
-    {% if path_str %} / {{path.name}} {%endif%}
+    {% if not section.is_root %} / {{section.name}} {% endif %}
 </h1>
 <!-- prettier-ignore -->
-{% if path.is_dir() %} 
-    {{ section_dir(path, repo_id, parent_chain, repo_name, path_str, children) }}
-{% elif path.is_file() %} 
-    {{ section_file(path, repo_id, parent_chain, is_text) }} 
+{% if section.type == "dir" %} 
+    {{ section_dir(section, repo_id, repo_name) }}
+    {% set readme = section.find_readme_child() %}
+    {% if readme %}
+    {{ section_file(readme) }}
+    {% endif %}
+{% elif section.type == "file" %} 
+    {{ section_file(section) }} 
 {% endif %}
-{% if readme_child %}{{ section_file(readme_child, 0, 0, 1) }}{% endif %} 
 {% endblock %}
