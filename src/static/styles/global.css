@@ -357,10 +357,6 @@ section {
     text-decoration: none;
 }
 
-.markdown {
-    padding: 0.5rem;
-}
-
 footer {
     padding: 0.75rem;
     width: 100%;
@@ -373,12 +369,21 @@ footer {
     text-align: center;
 }
 
-.file_contents_line {
+.file_code,
+.file_text {
     font-family: "Google Sans Code", monospace;
     padding-inline: 1rem;
-    word-break: break-all;
     white-space: pre-wrap;
+}
+
+.file_markdown {
+    padding: 0.5rem;
+}
+
+.file_image {
     display: block;
+    margin: auto;
+    max-width: 100%;
 }
 
 .spinner {
@@ -415,23 +420,23 @@ footer {
     color: var(--accent-200);
 }
 
-.table_display {
+table {
     width: 100%;
     background-color: var(--secondary-700);
     border-radius: 0.25rem;
     text-align: center;
 }
 
-.table_display th {
+table th {
     font-weight: bold;
     background-color: var(--accent-500);
 }
 
-.table_display tr {
+table tr {
     background-color: var(--background-900);
 }
 
-.table_display tr:nth-child(2n) {
+table tr:nth-child(2n) {
     background-color: var(--secondary-950);
 }
 

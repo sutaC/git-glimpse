@@ -1,10 +1,11 @@
+<!-- prettier-ignore -->
 {% extends "base.html" %}
-<!-- prettier-ignore -->
 {% from "macros/section_file.html" import section_file %}
-<!-- prettier-ignore -->
 {% from "macros/section_dir.html" import section_dir %}
-<!-- prettier-ignore -->
-{% block title %}{{section.name}} | {{repo_name}} | Git Glimpse{% endblock %}
+{% block title %}{% if not section.is_root %}{{section.name}} | {% endif %}{{repo_name}} | Git Glimpse{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{url_for('static', filename='styles/pygments.css')}}" />
+{% endblock %}
 
 <!-- prettier-ignore -->
 {% block nav %} 
@@ -28,7 +29,7 @@
     {% endif %}
     {% for parent in parent_chain %} 
     /
-    <a href="/repos/{{repo_id}}/{{parent|urlencode}}">{{parent.rsplit('/',1)[-1]}}</a>
+    <a href="/repos/{{repo_id}}/{{parent|urlencode}}/">{{parent.rsplit('/',1)[-1]}}</a>
     {% endfor %}
     <!-- prettier-ignore -->
     {% if not section.is_root %} / {{section.name}} {% endif %}

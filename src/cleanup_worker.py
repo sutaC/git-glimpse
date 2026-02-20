@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
-from src.lib.git import remove_protected_dir, RepoLock
 from src.globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
+from src.lib.git import remove_extracted_artifacts, remove_protected_dir
 from src.lib.utils import timestamp_to_str
 from src.lib import emails, logger as lg
 from src.lib.database import Database
@@ -34,12 +34,8 @@ def cleanup_extracted() -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
-        ext_path = item / "extracted"
-        if not ext_path.exists(): continue 
-        with RepoLock(ext_path):
-            if ext_path.exists():
-                remove_protected_dir(ext_path)
-                count += 1
+        if remove_extracted_artifacts(item):
+            count += 1
     # removes cached size
     SIZE_CACHE_PATH.unlink(missing_ok=True)
     return count

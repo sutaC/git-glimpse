@@ -72,6 +72,7 @@ class Code:
     FORBIDDEN_FILE_TYPE = "FORBIDDEN_FILE_TYPE"
     SCAN_TIMEOUT = "SCAN_TIMEOUT"
     CLONE_TIMEOUT = "CLONE_TIMEOUT"
+    RENDER_TIMEOUT = "RENDER_TIMEOUT"
     BUILD_EXCEPTION = "BUILD_EXCEPTION"
     REPO_LOCK_ACQUISITION = "REPO_LOCK_AQUISITION"
     REPO_NOT_FOUND = "REPO_NOT_FOUND"
@@ -89,6 +90,7 @@ USER_MESSAGES = {
     Code.FORBIDDEN_FILE_TYPE: "Repository contains forbidden file type(s)",
     Code.SCAN_TIMEOUT: "Repository scanning exceeded 10 seconds",
     Code.CLONE_TIMEOUT: "Repository cloning exceeded 30 seconds",
+    Code.RENDER_TIMEOUT: "Repository rendering exceeded 20 seconds",
     Code.BUILD_EXCEPTION: "Build failed due to an unexpected error",
     Code.REPO_LOCK_ACQUISITION: "Could not acquire repository lock, try again later",
     Code.REPO_NOT_FOUND: "Repository not found or private access denied",
@@ -106,6 +108,7 @@ DEFAULT_LEVELS = {
     Code.REPO_PERMISSION_DENIED: "WARN",
     Code.SCAN_TIMEOUT: "ERROR",
     Code.CLONE_TIMEOUT: "ERROR",
+    Code.RENDER_TIMEOUT: "ERROR",
     Code.BUILD_EXCEPTION: "ERROR",
     Code.REPO_LOCK_ACQUISITION: "ERROR",
     Code.NETWORK_ERROR: "ERROR"

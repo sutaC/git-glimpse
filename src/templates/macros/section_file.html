@@ -4,19 +4,12 @@
         <h2>{{section.name}}</h2>
         <a href="/raw/{{section.url}}" class="buttonlike primary">Raw</a>
     </div>
-    <div class="section_content {{'markdown' if section.is_markdown else ''}}">
+    <div class="section_content">
         <!-- prettier-ignore -->
         {% if section.is_text() %} {# Is text file #}
-        {% if section.is_markdown %} {# Is markdown #}
         {{section.load_content() | safe}}
-        {% else %} {# Is not text file #}
-        <!-- prettier-ignore -->
-        {% for line in section.load_content().split('\n') %}
-        <span class="file_contents_line">{{line if line else ' '}}</span>
-        {% endfor %}
-        <!-- prettier-ignore -->
-        {% endif %}
-        <!-- prettier-ignore -->
+        {% elif section.file_type == "image" %} {# Is image #}
+        <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" />
         {% else %} {# Is not a text file #}
         <small class="empty_msg">Cannot display this file...</small>
         {% endif %}

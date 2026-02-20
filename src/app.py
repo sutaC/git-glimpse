@@ -1,5 +1,5 @@
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from src.lib import emails, utils, auth, git, logger as lg
+from src.lib import emails, utils, auth, git, sections, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
@@ -88,14 +88,14 @@ def repos(repo_id: str, sub: str):
     if not repo_path.is_dir(): abort(404)
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
-    except Exception: abort(404)
+    except LookupError: abort(404)
     # Create response
     respone =  Response(render_template(
         "repos.html", 
         repo_id=repo_id,
         repo_name=repo.name,
-        parent_chain=utils.build_parentchain(path, repo_path),
-        section=utils.build_section(path)
+        parent_chain=sections.build_parentchain(path, repo_path),
+        section=sections.build_section(path)
     ))
     # Handles repos views
     day = int(time.time() // 86400)
@@ -407,7 +407,7 @@ def admin():
     build_24h_count = db.count_last24h_builds()
     build_7d_count = db.count_last7d_builds()
     sizes = db.sum_build_sizes()
-    extracted_size = git.get_extracted_size()
+    total_size = git.get_total_repos_size()
     builds = db.list_builds()
     cleanup_data = cworker.get_last_cleanup()
     return render_template(
@@ -418,8 +418,7 @@ def admin():
         build_7d_count=build_7d_count,
         build_sum_size=utils.size_to_str(sizes.size),
         build_sum_archive_size=utils.size_to_str(sizes.archive_size),
-        extracted_size=utils.size_to_str(extracted_size),
-        total_computed_size=utils.size_to_str(extracted_size+sizes.archive_size),
+        total_size=utils.size_to_str(total_size),
         latest_activity=utils.builds_activity_to_readable(builds),
         cleanup_data=cleanup_data
     )
