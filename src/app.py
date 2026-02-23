@@ -11,7 +11,6 @@ import os
 
 load_dotenv()
 
-CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL")
 ERROR_PAGE_TITLES = {
     403: "Forbidden",
     404: "Page Not Found",
@@ -26,6 +25,10 @@ with app.app_context():
     db.init_db()
 
 # --- request handlers
+@app.context_processor
+def inject_contact_email():
+    return dict(contact_email=os.getenv("CONTACT_EMAIL", "contact@example.com"))
+
 @app.teardown_appcontext
 def db_close(error=None):
     db._close()
@@ -68,7 +71,7 @@ def handle_errors(e):
         "error.html", 
         code=code,
         title=ERROR_PAGE_TITLES.get(code, "Error"), 
-        contact=CONTACT_EMAIL, 
+        contact=g.contact_email, 
         message=str(e) if app.debug else None
     ), code
 
@@ -76,6 +79,10 @@ def handle_errors(e):
 @app.route("/")
 def root():
     return render_template("index.html")
+
+@app.route("/rules")
+def rules():
+    return render_template("rules.html")
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")
@@ -802,5 +809,4 @@ def banned():
         "banned.html",
         ban_reason=ban.ban_reason,
         banned_at=utils.timestamp_to_str(ban.banned_at),
-        contact=CONTACT_EMAIL
     )

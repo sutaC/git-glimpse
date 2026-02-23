@@ -6,11 +6,11 @@
 {% block nav %}
 <a href="/user">Profile</a>
 <a href="/views">Views</a>
-{% if g.user.is_verified %} {% if (g.user.role == 'a') %}
-<a href="/admin">Admin</a>
-{% endif %}
+{% if g.user.is_verified %}
 <a href="/repos/add">Add repository</a>
-{% endif %} {% endblock %}
+{% if g.user.role == 'a' %}
+<a href="/admin">Admin</a>
+{% endif %} {% endif %} {% endblock %}
 
 <!-- prettier-ignore -->
 {% block content %}

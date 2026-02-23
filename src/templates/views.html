@@ -13,7 +13,9 @@
 {% block nav %}
 <a href="/user">Profile</a>
 <a href="/dashboard">Dashboard</a>
-{% endblock %}
+{% if g.user.is_verified and g.user.role == 'a' %}
+<a href="/admin">Admin</a>
+{% endif %} {% endblock %}
 
 <!-- prettier-ignore -->
 {% block content %}

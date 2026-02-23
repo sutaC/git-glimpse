@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}Rules | Git Glimpse{% endblock %}
+
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/dashboard">Dashboard</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1>Rules</h1>
+
+<section aria-label="document navigation">
+    <div class="section_header">
+        <h2>Navigation</h2>
+    </div>
+    <nav class="section_content">
+        <ul>
+            <li><a href="#purpose">Purpose</a></li>
+            <li><a href="#what_gets_shared">What Gets Shared</a></li>
+            <li><a href="#access_and_visibility">Access & Visibility</a></li>
+            <li><a href="#repository_limits">Repository Limits</a></li>
+            <li><a href="#account_lifetime">Account Lifetime</a></li>
+            <li><a href="#rebuilds">Rebuilds</a></li>
+            <li><a href="#acceptable_use">Acceptable Use</a></li>
+            <li><a href="#security_model">Security Model</a></li>
+            <li><a href="#no_warranty">No Warranty</a></li>
+        </ul>
+    </nav>
+</section>
+
+<section aria-labelledby="purpose">
+    <div class="section_header">
+        <h2 id="purpose">Purpose</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            Git Glimpse allows registered users to generate public, read-only snapshots of private
+            GitHub repositories for easy sharing.
+        </p>
+        <p>It is not a backup service and does not provide Git history.</p>
+    </div>
+</section>
+
+<section aria-labelledby="what_gets_shared">
+    <div class="section_header">
+        <h2 id="what_gets_shared">What Gets Shared</h2>
+    </div>
+    <div class="section_content">
+        <ul>
+            <li>Only the default branch (latest state) is included</li>
+            <li>Submodules are not supported</li>
+            <li>Only files present at build time are included</li>
+            <li>All content becomes publicly accessible via the generated link.</li>
+        </ul>
+    </div>
+</section>
+
+<section aria-labelledby="access_and_visibility">
+    <div class="section_header">
+        <h2 id="access_and_visibility">Access & Visibility</h2>
+    </div>
+    <div class="section_content">
+        <p>Snapshots are publicly accessible to anyone with the link</p>
+        <p>No authentication is required to view shared content</p>
+        <p>Do not upload repositories containing secrets or sensitive data</p>
+        <p>The service does not scan for secrets</p>
+        <p>You are fully responsible for the content you share.</p>
+    </div>
+</section>
+
+<section aria-labelledby="repository_limits">
+    <div class="section_header">
+        <h2 id="repository_limits">Repository Limits</h2>
+    </div>
+    <div class="section_content">
+        <h4>Per repository build:</h3>
+        <ul>
+            <li>Maximum repository size: 100 MB</li>
+            <li>Maximum file size (included): 10 MB</li>
+            <li>Maximum files: 10,000</li>
+            <li>Maximum directories: 5,000</li>
+            <li>Maximum directory depth: 20</li>
+            <li>Maximum clone time: 30 seconds</li>
+            <li>Maximum scan time: 10 seconds</li>
+            <li>Maximum render time: 20 seconds</li>
+        </ul>
+        <p>Files exceeding limits may be skipped or cause the build to fail.</p>
+        <h4>Forbidden File Types:</h3>
+        <p>Repositories cannot include the following special file types:</p>
+        <ul>
+            <li>Symbolic links</li>
+            <li>FIFO/Named pipes</li>
+            <li>Character devices</li>
+            <li>Block devices</li>
+            <li>Sockets</li>
+        </ul>
+        <p>Attempting to add these will result in a build error.</p>
+    </div>
+</section>
+
+<section aria-labelledby="account_lifetime">
+    <div class="section_header">
+        <h2 id="account_lifetime">Account Lifetime</h2>
+    </div>
+    <div class="section_content">
+        <p>A repository snapshot remains available as long as the owner's account is active.</p>
+        <p>
+            Accounts are flagged inactive after 90 days of inactivity; user will recieve a warning
+            email.
+        </p>
+        <p>After 97 days, repositories are marked hidden and become inaccessible.</p>
+        <p>Account removal deletes all associated repository data.</p>
+    </div>
+</section>
+
+<section aria-labelledby="rebuilds">
+    <div class="section_header">
+        <h2 id="rebuilds">Rebuilds</h2>
+    </div>
+    <div class="section_content">
+        <p>Snapshots are created only when the owner triggers a build</p>
+        <p>Content does not update automatically when the source repository changes</p>
+        <p>Each build replaces the previous snapshot</p>
+    </div>
+</section>
+
+<section aria-labelledby="acceptable_use">
+    <div class="section_header">
+        <h2 id="acceptable_use">Acceptable Use</h2>
+    </div>
+    <div class="section_content">
+        <p>You agree not to use Git Glimpse to share:</p>
+        <ul>
+            <li>Illegal content</li>
+            <li>Malware or exploit code intended for harm</li>
+            <li>Content you do not have the right to distribute</li>
+            <li>Personal data without consent</li>
+        </ul>
+        <p>Accounts violating these rules may be suspended and data removed.</p>
+    </div>
+</section>
+
+<section aria-labelledby="security_model">
+    <div class="section_header">
+        <h2 id="security_model">Security Model</h2>
+    </div>
+    <div class="section_content">
+        <p>Access to private repositories is performed using user-provided deploy keys</p>
+        <p>Keys are stored encrypted and used only for cloning</p>
+        <p>The service operates in an isolated build environment</p>
+    </div>
+</section>
+
+<section aria-labelledby="no_warranty">
+    <div class="section_header">
+        <h2 id="no_warranty">No Warranty</h2>
+    </div>
+    <div class="section_content">
+        <p>Git Glimpse is provided as-is without guarantees of:</p>
+        <ul>
+            <li>Availability</li>
+            <li>Data durability</li>
+            <li>Fitness for any particular purpose</li>
+        </ul>
+        <p>Always keep your own backups.</p>
+    </div>
+</section>
+
+{% endblock %}
