@@ -97,7 +97,6 @@ class FileSection(Section):
         if not self.is_text(): raise ValueError("Cannot load contents of non-text file")
         if self._content: return self._content
         prerendered = get_prerendered(self.path)
-        print("PRERENDERED:", prerendered)
         if prerendered:
             self._content = Markup(prerendered.read_text())
         else:

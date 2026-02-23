@@ -2,8 +2,6 @@
 
 Git Glimpse is a simple self-hosted application for sharing private GitHub repositories with friends via public links.
 
-> Currently in development
-
 ## Requiraments
 
 - Docker

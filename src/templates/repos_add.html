@@ -20,7 +20,8 @@
         <label for="ssh_key">Key:</label>
         <textarea name="ssh_key" id="ssh_key"></textarea>
     </div>
-    <small>By adding a repository, you agree to our <a href="/rules" target="_blank">Terms & Rules</a>.</small>
+    <p class="centered">Learn more about deploy keys <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys#deploy-keys" target="_blank" rel="noopener noreferrer">here</a>.</p>
     <button type="submit" {{"disabled" if is_blocked else ""}}>Add</button>
+    <small>By adding a repository, you agree to our <a href="/rules" target="_blank">Terms & Rules</a>.</small>
 </form>
 {% endblock %}
