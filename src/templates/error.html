@@ -23,7 +23,7 @@
     {% if g.user %}
     <a href="/dashboard">Go to Dashboard</a>
     {% endif %} {% if contact %}
-    <a href="mailto:{{contact}}">Contact support</a>
+    <a href="mailto:{{ contact_email }}">Contact support</a>
     {% endif %}
 </nav>
 {% endblock %}

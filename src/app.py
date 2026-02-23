@@ -71,7 +71,6 @@ def handle_errors(e):
         "error.html", 
         code=code,
         title=ERROR_PAGE_TITLES.get(code, "Error"), 
-        contact=g.contact_email, 
         message=str(e) if app.debug else None
     ), code
 
@@ -83,6 +82,10 @@ def root():
 @app.route("/rules")
 def rules():
     return render_template("rules.html")
+
+@app.route("/repos/demo")
+def repos_demo():
+    return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}")
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")

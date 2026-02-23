@@ -260,7 +260,7 @@ header nav.open {
     flex-direction: column;
     background-color: var(--background-900);
     inset: 0;
-    z-index: 100;
+    z-index: 101;
     text-align: center;
     animation: 125ms ease-in slide-in;
 }
@@ -277,6 +277,7 @@ header nav.open + .backdrop {
     background-color: black;
     opacity: 0.8;
     inset: 0;
+    z-index: 100;
 }
 
 header nav.open a {

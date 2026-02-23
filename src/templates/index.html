@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
 {% block title %}Home | Git Glimpse{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{url_for('static', filename='styles/homepage.css')}}" />
+{% endblock %}
 
 <!-- prettier-ignore -->
 {% block nav %} 
@@ -13,5 +16,101 @@
 
 <!-- prettier-ignore -->
 {% block content %}
-<h2>Get started</h2>
+<div class="hero">
+    <img class="logo" src="{{url_for('static', filename='images/logo.svg')}}" alt="Git Glimpse" />
+    <h1>Share GitHub Repositories</h1>
+    <p class="subscript">
+        Git Glimpse is a simple self-hosted application for sharing private GitHub repositories with
+        friends via public links.
+    </p>
+</div>
+
+<div class="cta">
+    <div class="call">
+        <h2>Get started</h2>
+        <p>Create an account or log in to start sharing your repositories.</p>
+    </div>
+    <div class="action">
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    </div>
+</div>
+
+<div class="features">
+    <h2>Features</h2>
+    <ul>
+        <li>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                fill="#f4f2f0"
+                class="icon"
+            >
+                <path
+                    d="M480-480ZM202-65l-56-57 118-118h-90v-80h226v226h-80v-89L202-65Zm278-15v-80h240v-440H520v-200H240v400h-80v-400q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H480Z"
+                />
+            </svg>
+            <span>Generate public, read-only links for GitHub repositories</span>
+        </li>
+        <li>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                fill="#f4f2f0"
+                class="icon"
+            >
+                <path
+                    d="m422-232 207-248H469l29-227-185 267h139l-30 208ZM320-80l40-280H160l360-520h80l-40 320h240L400-80h-80Zm151-390Z"
+                />
+            </svg>
+            <span>Fast build-time syntax highlighting and Markdown previews</span>
+        </li>
+        <li>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="icon"
+                fill="#f4f2f0"
+            >
+                <path
+                    d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q97-30 162-118.5T718-480H480v-315l-240 90v207q0 7 2 18h238v316Z"
+                />
+            </svg>
+            <span>Safe deploy-key based access</span>
+        </li>
+        <li>
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="icon"
+                fill="#f4f2f0"
+            >
+                <path
+                    d="M395-475q-35-35-35-85t35-85q35-35 85-35t85 35q35 35 35 85t-35 85q-35 35-85 35t-85-35ZM240-40v-309q-38-42-59-96t-21-115q0-134 93-227t227-93q134 0 227 93t93 227q0 61-21 115t-59 96v309l-240-80-240 80Zm410-350q70-70 70-170t-70-170q-70-70-170-70t-170 70q-70 70-70 170t70 170q70 70 170 70t170-70ZM320-159l160-41 160 41v-124q-35 20-75.5 31.5T480-240q-44 0-84.5-11.5T320-283v124Zm160-62Z"
+                />
+            </svg>
+            <span>Lightweight, open-source, and easy to self-host</span>
+        </li>
+    </ul>
+</div>
+
+<div class="demo">
+    <div class="call">
+        <h2>Try a Sample Snapshot</h2>
+        <p>See how a repository will look once shared:</p>
+    </div>
+    <div class="arrow_container">
+        <div class="line"></div>
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            height="24px"
+            viewBox="0 -960 960 960"
+            width="24px"
+            fill="#f4f2f0"
+        >
+            <path d="m560-240-56-58 142-142H160v-80h486L504-662l56-58 240 240-240 240Z" />
+        </svg>
+    </div>
+    <a href="/repos/demo">View Demo Repository</a>
+</div>
 {% endblock %}

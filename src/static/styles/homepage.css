@@ -1,0 +1,225 @@
+main {
+    text-align: center;
+}
+
+main > div {
+    margin: 8rem auto;
+}
+
+/* --- hero --- */
+.hero {
+    margin-top: 0;
+}
+
+.hero .logo {
+    display: block;
+    width: 10rem;
+    aspect-ratio: 1;
+    margin: 1rem auto;
+    object-fit: fill;
+    filter: drop-shadow(0 0 0.25rem var(--primary-800));
+}
+
+/* --- cta --- */
+.cta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-content: center;
+    max-width: 50rem;
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.cta * {
+    margin: 0;
+}
+
+.cta > div {
+    flex: 1;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    gap: 1em;
+    padding: 5rem 2.5rem;
+    flex-direction: column;
+}
+
+.cta .call {
+    border-radius: 0.375rem;
+    background-color: var(--primary-500);
+    filter: drop-shadow(0 0 0.25rem var(--primary-800));
+    border-bottom: 1px solid transparent;
+}
+
+.cta .action {
+    gap: 0;
+    padding: 0;
+}
+
+.cta .action a {
+    background-color: var(--background-900);
+    font-size: 1.5rem;
+    flex: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-50);
+    border-radius: 0.375rem;
+    border-bottom: 1px solid var(--secondary-700);
+    box-shadow: inset 0 0 0.5rem var(--background-950);
+    padding: 2.5rem 1.25rem;
+}
+
+.cta:hover .call:not(:hover) {
+    background-color: var(--background-900);
+    filter: none;
+    border-bottom: 1px solid var(--secondary-700);
+    box-shadow: inset 0 -0.25rem 0.5rem var(--background-950);
+}
+
+.cta .action a:hover {
+    background-color: var(--primary-500);
+    filter: drop-shadow(0 0 0.25rem var(--primary-800));
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* --- features --- */
+.features ul {
+    display: flex;
+    gap: 2rem;
+    text-align: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0;
+}
+
+.features li {
+    list-style: none;
+    background-color: var(--background-900);
+    border: 1px solid var(--secondary-700);
+    color: var(--secondary-400);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    flex: 1;
+    aspect-ratio: 5 / 7;
+    display: flex;
+    justify-content: space-evenly;
+    gap: 1rem;
+    flex-direction: column;
+    align-items: center;
+    transition: 100ms ease-out;
+    text-wrap: balance;
+}
+
+.features li:hover {
+    border-color: var(--primary-500);
+    filter: drop-shadow(0 0 0.5rem var(--primary-800));
+}
+
+.features .icon {
+    max-width: 7.5rem;
+    fill: var(--text-50);
+    transition: 100ms ease-out;
+}
+
+.features li:hover .icon {
+    fill: var(--primary-500);
+    filter: drop-shadow(0 0 0.125rem var(--primary-800));
+}
+
+/* --- demo --- */
+
+.demo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.demo * {
+    margin: 0;
+}
+
+.demo h2 {
+    margin: 0 0 0.5rem;
+}
+
+.demo .arrow_container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.demo .line {
+    display: none;
+}
+
+.demo svg {
+    rotate: 90deg;
+}
+
+.demo a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-50);
+    background-color: var(--background-900);
+    border: 1px solid var(--secondary-700);
+    text-decoration: none;
+    padding: 2rem 1rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.demo a:hover {
+    filter: drop-shadow(0 0 0.5rem var(--primary-800));
+    background-color: var(--primary-500);
+    border-color: transparent;
+}
+
+/* --- media --- */
+@media (width >= 600px) {
+    .cta {
+        flex-direction: row;
+    }
+
+    .features ul {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .demo {
+        flex-direction: row;
+        text-align: left;
+        max-width: 44.75rem;
+    }
+
+    .demo .arrow_container {
+        flex-grow: 1;
+    }
+
+    .demo .line {
+        display: block;
+        height: 2px;
+        width: 100%;
+        flex-grow: 1;
+        background: repeating-linear-gradient(
+            to right,
+            var(--text-50),
+            var(--text-50) 1rem,
+            transparent 1rem,
+            transparent 1.5rem
+        );
+        margin-right: 0.25rem;
+    }
+
+    .demo svg {
+        rotate: 0deg;
+    }
+}
