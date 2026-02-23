@@ -36,7 +36,10 @@
             <button class="mobile" id="menu_toggle">
                 <img src="{{url_for('static', filename='images/menu_icon.svg')}}" alt="menu" />
             </button>
-            <nav>{% block nav %}{% endblock %}</nav>
+            <nav>
+                <a href="/">Home</a>
+                {% block nav %}{% endblock %}
+            </nav>
             <div class="backdrop"></div>
         </header>
         <main>{% block content %}{% endblock %}</main>

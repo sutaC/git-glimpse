@@ -52,11 +52,11 @@
         <h2>Acctions</h2>
     </div>
     <div class="section_content wrap">
-        <p><a href="/logout" class="buttonlike primary">Logout</a></p>
+        <a href="/logout" class="buttonlike primary">Logout</a>
         {% if g.user.is_verified and g.user.login != "root" %}
-        <p><a href="/password/change" class="buttonlike">Change password</a></p>
+        <a href="/password/change" class="buttonlike">Change password</a>
         {% endif %} {% if g.user.login != "root" %}
-        <p><a href="/user/remove" class="buttonlike">Remove account</a></p>
+        <a href="/user/remove" class="buttonlike">Remove account</a>
         {% endif %}{% endblock %}
     </div>
 </section>

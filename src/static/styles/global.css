@@ -137,6 +137,7 @@ a.buttonlike {
     cursor: pointer;
     transition: 125ms ease-in;
     font-size: 0.9rem;
+    display: inline-block;
 }
 
 button:hover,
@@ -196,7 +197,7 @@ hr {
 
 .wrap {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: center;
     text-align: center;
     gap: 1rem;
@@ -457,9 +458,13 @@ table tr:nth-child(2n) {
     color: crimson;
 }
 
-.pager > * {
-    display: inline-block;
-    margin-inline: 0.25rem;
+.pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    text-align: center;
 }
 
 form.standalone {
