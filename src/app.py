@@ -1,5 +1,5 @@
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from src.lib import emails, utils, auth, git, sections, logger as lg
+from src.lib import emails, utils, auth, git, sections, tracking, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
@@ -113,10 +113,10 @@ def repos(repo_id: str, sub: str):
     viewed = request.cookies.get(rv_key)
     if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-        if g.user: vhash = utils.viewer_hash(day, user_id=g.user.user_id)
-        else: vhash = utils.viewer_hash(day, ip=ip, ua=request.user_agent.string)
-        client = utils.detect_client(request.user_agent.string)
-        location = utils.detect_location(ip)
+        if g.user: vhash = tracking.viewer_hash(day, user_id=g.user.user_id)
+        else: vhash = tracking.viewer_hash(day, ip=ip, ua=request.user_agent.string)
+        client = tracking.detect_client(request.user_agent.string)
+        location = tracking.detect_location(ip)
         added = db.add_repo_view(repo_id, vhash, client, location)
         if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
