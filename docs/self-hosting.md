@@ -51,6 +51,25 @@ Development uses Docker with:
 
     > After initialising database the **only** way to change root account password.
 
+### Generating code documentation
+
+This project uses `pydoc-markdown` to generate Markdown code documentation.
+
+1. Create a virtual environment:
+    ```
+    python -m venv .venv
+    source .venv/bin/activate
+    ```
+2. Install dependencies:
+    ```
+    pip install -r requirements.txt
+    pip install pydoc-markdown
+    ```
+3. Generate code documentation:
+    ```
+    pydoc-markdown > docs/code.md
+    ```
+
 ## Production
 
 Production uses the same image with different volume mappings and stricter filesystem settings.

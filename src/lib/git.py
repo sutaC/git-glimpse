@@ -15,6 +15,7 @@ import json
 import os
 
 _FERNET_KEY = os.environ.get("FERNET_KEY", "")
+if not _FERNET_KEY: raise SystemError("FERNET_KEY env is required.")
 _FERNET = Fernet(_FERNET_KEY)
 
 _ARTIFACT_NAME = "artifact.tar.zst"

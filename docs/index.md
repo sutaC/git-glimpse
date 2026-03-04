@@ -17,3 +17,4 @@
 ## Deployment
 
 - [Self-hosting Guide](self-hosting.md)
+- [Code Documentation](code.md)

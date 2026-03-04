@@ -1,12 +1,9 @@
-import signal
-from dotenv import load_dotenv
-load_dotenv()
-# ensures loaded .env in modules
 from src.globals import DATABASE_PATH, REPO_PATH
 from src.lib.database import Database
 from src.lib import git, logger as lg
 from time import sleep, time
 import threading
+import signal
 
 shutdown_event = threading.Event()
 

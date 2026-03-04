@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
-# ensures loaded .env in modules
 from src.globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
 from src.lib.git import RepoLockError, remove_extracted_artifacts, remove_protected_dir, RepoLock
 from src.lib.utils import timestamp_to_str
