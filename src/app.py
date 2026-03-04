@@ -141,16 +141,17 @@ def raw(repo_id: str, sub: str):
         # Downloading repo archive
         with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
             zip_path = Path(tmp.name)
-            git.zip_repo(path, zip_path)
+            try:
+                with git.RepoLock(repo_path):
+                    git.zip_dir(path, zip_path)
+            except git.RepoLockError:
+                abort(500, "Could not generate zip archive, try again later.")
             return send_file(
                 zip_path,
                 mimetype="application/zip",
                 download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
-        archive_path = repo_path / git.ARTIFACT_NAME
-        if not archive_path.exists(): abort(404)
-        return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
 
 @app.route("/repos/add", methods=["GET", "POST"])
@@ -363,7 +364,12 @@ def repos_remove(repo_id: str):
     if not user_id or user_id != g.user.user_id: abort(404)
     db.delete_repo(repo_id)
     path = REPO_PATH / repo_id
-    if path.exists(): git.remove_protected_dir(path)
+    if path.exists(): 
+        try:
+            with git.RepoLock(path):
+                git.remove_protected_dir(path)
+        except git.RepoLockError:
+            pass # Will be cleaned up by cleanup worker later
     lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
     return redirect("/dashboard")
 

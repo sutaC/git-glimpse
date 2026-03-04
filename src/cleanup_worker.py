@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # ensures loaded .env in modules
 from src.globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
-from src.lib.git import remove_extracted_artifacts, remove_protected_dir
+from src.lib.git import RepoLockError, remove_extracted_artifacts, remove_protected_dir, RepoLock
 from src.lib.utils import timestamp_to_str
 from src.lib import emails, logger as lg
 from src.lib.database import Database
@@ -17,7 +17,10 @@ def cleanup_repos(db: Database) -> int:
         if not item.is_dir(): continue
         user_id: int | None = db._fetch_value("SELECT `user_id` FROM `repos` WHERE `id` = ?;", (item.name,))
         if not user_id: # Repo id not in db
-            remove_protected_dir(item)
+            try:
+                with RepoLock(item):
+                    remove_protected_dir(item)
+            except RepoLockError: continue
             count += 1
             continue
         user_exists = db._fetch_exists("SELECT 1 FROM `users` WHERE `id` = ?;", (user_id,))
@@ -34,8 +37,11 @@ def cleanup_extracted() -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
-        if remove_extracted_artifacts(item):
-            count += 1
+        try:
+            with RepoLock(item):
+                if remove_extracted_artifacts(item):
+                    count += 1
+        except RepoLockError: continue
     # removes cached size
     SIZE_CACHE_PATH.unlink(missing_ok=True)
     return count
@@ -136,7 +142,10 @@ def cleanup_inactive_users_repos(db: Database) -> int:
         c.execute('UPDATE `repos` SET `hidden` = 1 WHERE `user_id` = ? AND `hidden` = 0;', (uid,))
         for rid in repos:
             rpath = REPO_PATH / rid[0]
-            remove_protected_dir(rpath)
+            try:
+                with RepoLock(rpath):
+                    remove_protected_dir(rpath)
+            except RepoLockError: continue
         if not is_verified: continue
         emails.send_email(
             emails.EmailIntent.REPO_REMOVAL,

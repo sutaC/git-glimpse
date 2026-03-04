@@ -1,3 +1,4 @@
+"""Module provides interface for handing git repositories."""
 from src.globals import REPO_PATH, SIZE_CACHE_PATH
 from cryptography.fernet import Fernet 
 from src.lib import sections, logger as lg
@@ -14,33 +15,64 @@ import json
 import os
 
 _FERNET_KEY = os.environ.get("FERNET_KEY", "")
-FERNET = Fernet(_FERNET_KEY)
+_FERNET = Fernet(_FERNET_KEY)
 
-ARTIFACT_NAME = "artifact.tar.zst"
-HTML_ARTIFACT_NAME = "html.tar.zst"
-MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-MAX_FILE_COUNT = 10_000
-MAX_DIR_COUNT = 5_000
-MAX_DEPTH = 20
-MAX_SCAN_TIME = 10 # 10 s
-MAX_CLONE_TIME = 30 # 30 s
-MAX_RENDER_TIME = 20 # 20 s
-MAX_RENDER_FILE_SIZE = 1024 * 1024 # 1 MB
+_ARTIFACT_NAME = "artifact.tar.zst"
+_HTML_ARTIFACT_NAME = "html.tar.zst"
+_MAX_REPO_SIZE = 100 * 1024 * 1024  # 100 MB
+_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+_MAX_FILE_COUNT = 10_000
+_MAX_DIR_COUNT = 5_000
+_MAX_DEPTH = 20
+_MAX_SCAN_TIME = 10 # 10 s
+_MAX_CLONE_TIME = 30 # 30 s
+_MAX_RENDER_TIME = 20 # 20 s
+_MAX_RENDER_FILE_SIZE = 1024 * 1024 # 1 MB
 
 class RepoError(RuntimeError):
+    """Repository cloning error.
+    
+    Types of RepoError:
+    - 'f' = failure 
+    - 'v' = violation
+
+    Args:
+        type: Type of error.
+        code: Error code corresponding to `lib.logger.Code`.
+        args: Additional error information.
+    """
     def __init__(self, type: Literal['f', 'v'], code: str, **args) -> None:
         super().__init__(*args)
         self.type: Literal['f', 'v'] = type
         self.code: str = code
         self.extra = args
 
+class RepoLockError(RuntimeError):
+    """Repository lock error."""
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
 class RepoLock:
-    def __init__(self, repo_path: Path):
+    """Repository lock for asyncronus repo managment.
+    
+    Args:
+        repo_path: Path to repository.
+    """
+
+    def __init__(self, repo_path: Path) -> None:
         self.lock_file = repo_path / ".extract.lock"
         self.acquired = False
 
-    def acquire(self, timeout: int = 10):
+    def acquire(self, timeout: int = 10) -> None:
+        """Acquires lock.
+        
+        Args:
+            timeout: Timeout for aquiring repo lock in seconds (default 10).
+
+        Raises:
+            RepoLockError: When repository lock could not be aquired. 
+        """
         start = time.time()
         while True:
             try:
@@ -51,10 +83,11 @@ class RepoLock:
                 return
             except FileExistsError:
                 if time.time() - start > timeout:
-                    raise RuntimeError("Could not acquire repo lock")
+                    raise RepoLockError("Could not acquire repo lock")
                 time.sleep(0.1)
 
-    def release(self):
+    def release(self) -> None:
+        """Releases repository lock."""
         if self.acquired and self.lock_file.exists():
             self.lock_file.unlink()
             self.acquired = False
@@ -66,30 +99,42 @@ class RepoLock:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release()
 
-def check_repo_limits(path: Path) -> int:
+# --- repo cloning ---
+def _check_repo_limits(path: Path) -> int:
+    """Scans repository and validates limits.
+    
+    Args:
+        path: Repository path.
+
+    Returns:
+        Total repository size.
+
+    Raises:
+        RepoError: When repositroy violates limits.
+    """
     total_size = 0
     file_count = 0
     dir_count = 0
     time_limit = time.monotonic()
     for f in path.rglob("*"):
         if f.is_file():
-            if time.monotonic() - time_limit > MAX_SCAN_TIME:
+            if time.monotonic() - time_limit > _MAX_SCAN_TIME:
                 raise RepoError('v', lg.Code.SCAN_TIMEOUT)
             file_count += 1
-            if file_count > MAX_FILE_COUNT:
+            if file_count > _MAX_FILE_COUNT:
                 raise RepoError('v', lg.Code.LIMIT_MAX_FILES)
             size = f.stat().st_size
-            if size > MAX_FILE_SIZE:
+            if size > _MAX_FILE_SIZE:
                 raise RepoError('v', lg.Code.LIMIT_MAX_FILE)
             total_size += size
-            if total_size > MAX_REPO_SIZE:
+            if total_size > _MAX_REPO_SIZE:
                 raise RepoError('v', lg.Code.LIMIT_MAX_SIZE)
         if f.is_dir():
             dir_count += 1
-            if dir_count > MAX_DIR_COUNT:
+            if dir_count > _MAX_DIR_COUNT:
                 raise RepoError('v', lg.Code.LIMIT_MAX_DIRS)
             depth = len(f.relative_to(path).parts)
-            if depth > MAX_DEPTH:
+            if depth > _MAX_DEPTH:
                 raise RepoError('v', lg.Code.LIMIT_MAX_DEPTH)
         elif f.is_symlink():
             raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
@@ -104,11 +149,24 @@ def check_repo_limits(path: Path) -> int:
     return total_size
    
 def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[int, int]:
+    """Clones repository.
+    
+    Args:
+        url: Repository URL.
+        repo_dir: Repository destination path (eg. `.../data/repos/[id]/`).
+        ssh_key: Repository SSH key (only when using SSH URL).
+    
+    Returns:
+        Repository total size, repository artifact size.
+
+    Raises:
+        RepoError: When clone fails unexpectedly or repository violates rules.
+    """
     env = os.environ.copy()
     key_path = None
     try:
         if ssh_key:
-            key_path = write_ssh_key_temp(ssh_key)
+            key_path = _write_ssh_key_temp(ssh_key)
             env["GIT_SSH_COMMAND"] = f"\
                 ssh -i {key_path} \
                     -o StrictHostKeyChecking=yes \
@@ -129,7 +187,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
                     capture_output=True,
                     text=True,
                     env=env,
-                    timeout=MAX_CLONE_TIME
+                    timeout=_MAX_CLONE_TIME
                 )
             except subprocess.TimeoutExpired:
                 raise RepoError('v', lg.Code.CLONE_TIMEOUT)
@@ -154,24 +212,24 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
             if gitmodules_dir.exists(): 
                 raise RepoError('v', lg.Code.FORBIDDEN_FILE_TYPE)
             # Checks repo limits
-            repo_size = check_repo_limits(tmpdir)
+            repo_size = _check_repo_limits(tmpdir)
             # Ensures target dir is empty
             if repo_dir.exists():
                 remove_protected_dir(repo_dir)
             repo_dir.mkdir(exist_ok=True, parents=True)
             # Moves files to repo_dir artifact
-            artifact_path = repo_dir / ARTIFACT_NAME
-            compress_repo(tmpdir, artifact_path)
+            artifact_path = repo_dir / _ARTIFACT_NAME
+            _compress_dir(tmpdir, artifact_path)
             artifact_path.chmod(0o400)
             # Renders code files
-            html_artifact_path = repo_dir / HTML_ARTIFACT_NAME
+            html_artifact_path = repo_dir / _HTML_ARTIFACT_NAME
             with tempfile.TemporaryDirectory() as tmpdir_html_str:
                 tmpdir_html = Path(tmpdir_html_str)
                 try:
-                    render_repo(tmpdir, tmpdir_html)
+                    _render_repo(tmpdir, tmpdir_html)
                 except TimeoutError:
                     raise RepoError('v', lg.Code.RENDER_TIMEOUT)
-                compress_repo(tmpdir_html, html_artifact_path)
+                _compress_dir(tmpdir_html, html_artifact_path)
             html_artifact_path.chmod(0o400)
             # returns repo size
             artifact_sizes = artifact_path.stat().st_size + html_artifact_path.stat().st_size
@@ -183,21 +241,81 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
     finally:
         if key_path: key_path.unlink(missing_ok=True)
 
-def compress_repo(src_dir: Path, archive_path: Path, compression_level: int = 3) -> None:
+def _compress_dir(src_dir: Path, archive_path: Path, compression_level: int = 3) -> None:
+    """Compresses src directory to `.zst.tar` archive.
+    
+    Args:
+        src_dir: Source directory to compress.
+        archive_path: Path where archive will be written.
+        compression_level: Zst compression level (default 4). 
+    """
     with open(archive_path, "wb") as f_out:
         cctx = zstd.ZstdCompressor(level=compression_level)
         with cctx.stream_writer(f_out) as compressor:
             with tarfile.open(fileobj=compressor, mode="w") as tar:
                 tar.add(src_dir, arcname="")
 
-def extract_repo(repo_path: Path) -> None:
+def _render_repo(src_path: Path, dest_path: Path) -> None:
+    """Prerenders repository files.
+
+    Args:
+        src_path: Repository source path.
+        dest_path: Destination folder path (will be modified).
+    
+    Raises:
+        TimeoutError: When reaches render timeout.
+    """
+    start = time.monotonic()
+    for path in src_path.rglob("*"):
+        if time.monotonic() - start > _MAX_RENDER_TIME: 
+            raise TimeoutError()
+        if not path.is_file(): continue
+        if not sections.is_text(path): continue
+        path_size = path.stat().st_size
+        if not path_size: continue
+        if path_size > _MAX_RENDER_FILE_SIZE: continue
+        ftype = sections.detect_file_type(path)
+        if ftype == "markdown":
+            html = sections.render_markdown(path.read_text(errors="replace"))
+        elif ftype == "code":
+            html = sections.highlight_code(path.read_text(errors="replace"), path.name)
+        else:
+            continue
+        html_path = dest_path / (str(path.relative_to(src_path)) + ".html")
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_text(html)
+
+# --- repo handling ---
+def _extract_repo(repo_path: Path) -> None:
+    """Extracts all repository artifact.
+
+    **Warning:** This function uses `RepoLock`.
+
+    Extarcts repositroy artifacts to:
+    - `extracted/` = Regular files
+    - `html/` = Prerendered template files
+    
+    Args:
+        repo_path: Path to repository.
+
+    Raises:
+        RepoLockError: If repository lock could not be acquired.
+    """
     if not repo_path.exists(): return None
     with RepoLock(repo_path):
-        _extract_repo_artifact(artifact_path=(repo_path / ARTIFACT_NAME), dest_path=(repo_path / "extracted"))
-        _extract_repo_artifact(artifact_path=(repo_path / HTML_ARTIFACT_NAME), dest_path=(repo_path / "html"))
+        _extract_repo_artifact(artifact_path=(repo_path / _ARTIFACT_NAME), dest_path=(repo_path / "extracted"))
+        _extract_repo_artifact(artifact_path=(repo_path / _HTML_ARTIFACT_NAME), dest_path=(repo_path / "html"))
     lg.log(lg.Event.REPO_EXTRACTED, repo_id=repo_path.name)
 
 def _extract_repo_artifact(artifact_path: Path, dest_path: Path) -> None:
+    """Extarcs specific repository artifact.
+    
+    **Warning:** This function operates on repository files and should be used with `RepoLock`.
+
+    Args:
+        artifact_path: Repository artifact file path.
+        dest_path: Destination path.
+    """
     if not artifact_path.exists(): raise FileNotFoundError("Artifact doesnt exist")
     if dest_path.exists(): remove_protected_dir(dest_path)
     dest_path.mkdir(parents=True)
@@ -223,7 +341,14 @@ def _extract_repo_artifact(artifact_path: Path, dest_path: Path) -> None:
         elif path.is_dir():
             path.chmod(0o500)
 
-def remove_protected_dir(path: Path):
+def remove_protected_dir(path: Path) -> None:
+    """Removes repository protected directories.
+
+    **Warning:** If this function operates on repository files you should be using `RepoLock`.
+
+    Args:
+        path: Directory path to remove.
+    """
     if not path.exists(): return
     path.chmod(0o700)
     for child in path.rglob("*"):
@@ -231,6 +356,19 @@ def remove_protected_dir(path: Path):
     shutil.rmtree(path)
 
 def remove_extracted_artifacts(repo_path: Path) -> bool:
+    """Removes extracted repository artifacts.
+
+    **Warning:** This function uses `RepoLock`.
+
+    Args:
+        repo_path: Path to repository.
+
+    Returns:
+        True if any one of extarcted artifacts was removed.
+
+    Raises:
+        RepoLockError: If repository lock could not be acquired.
+    """
     ext_path = repo_path / "extracted"
     html_path = repo_path / "html"
     if not (ext_path.exists() or html_path.exists()):
@@ -243,29 +381,55 @@ def remove_extracted_artifacts(repo_path: Path) -> bool:
     return True
 
 def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
+    """Gives absolute path to repository resource.
+    
+    Args:
+        repo_path: Path to repository.
+        sub_path: Inner repository path.
+
+    Returns:
+        Absolute path to repository resource
+
+    Raises:
+        LookupError: If resource is not found or path is invalid.
+    """
     ext_path = repo_path / "extracted"
-    html_path = repo_path / "html"
-    if not ext_path.exists() or not html_path.exists():
-        extract_repo(repo_path)
+    if not ext_path.exists() or not (repo_path / "html").exists():
+        _extract_repo(repo_path)
     path = (ext_path / sub_path).resolve()
     if not path.is_relative_to(ext_path): raise LookupError()
     if path.is_symlink() or any(p.is_symlink() for p in path.parents): raise LookupError()
     if not path.exists(): raise LookupError()
     return path
 
-def zip_repo(ext_path: Path, zip_path: Path) -> None:
+def zip_dir(src_path: Path, dest_path: Path) -> None:
+    """Packs directory into zip archive.
+
+    **Warning:** If this function operates on repository files you should be using `RepoLock`.
+
+    Args:
+        src_path: Source directory to pack.
+        dest_path: Destination path where zip archive is written to.
+    """
     with zipfile.ZipFile(
-        zip_path,
+        dest_path,
         "w",
         compression=zipfile.ZIP_DEFLATED,
         compresslevel=6,
     ) as zf:
-        for path in ext_path.rglob("*"):
-            arcname = path.relative_to(ext_path)
+        for path in src_path.rglob("*"):
+            arcname = path.relative_to(src_path)
             if path.is_file():
                 zf.write(path, arcname)
 
 def get_total_repos_size() -> int:
+    """Calculates total repositories size.
+
+    This function uses cache file stored at `data/repos/` valid for 15 minutes.
+    
+    Returns:
+        Total size of all repositories.
+    """
     # Check cache
     if SIZE_CACHE_PATH.exists():    
         with open(SIZE_CACHE_PATH, "r") as cf:
@@ -282,9 +446,12 @@ def get_total_repos_size() -> int:
     total = 0
     for repo_path in REPO_PATH.iterdir():
         if not repo_path.is_dir(): continue
-        for child in repo_path.rglob("*"):
-            if child.is_file():
-                total += child.stat().st_size
+        try:
+            with RepoLock(repo_path):
+                for child in repo_path.rglob("*"):
+                    if child.is_file():
+                        total += child.stat().st_size
+        except RepoLockError: continue
     # Save to cache
     try:
         with open(SIZE_CACHE_PATH, "w") as cf:
@@ -293,26 +460,69 @@ def get_total_repos_size() -> int:
         pass
     return total
 
+# --- SSH key handing ---
 def encrypt_ssh_key(ssh_key: str) -> str:
-    return FERNET.encrypt(ssh_key.encode()).decode()
+    """Encrypts SSH key.
+    
+    Args:
+        ssh_key: SSH key to encrypt.
+
+    Returns:
+        Encrypted SSH key.
+    """
+    return _FERNET.encrypt(ssh_key.encode()).decode()
 
 def decrypt_ssh_key(ssh_key: str) -> str:
-    return FERNET.decrypt(ssh_key.encode()).decode()
+    """Decrypts SSH key.
+    
+    Args:
+        ssh_key: SSH key to encrypt.
+
+    Returns:
+        Decrypted SSH key.
+    """
+    return _FERNET.decrypt(ssh_key.encode()).decode()
 
 def normalize_ssh_key(ssh_key: str) -> str:
+    """Normalizes SSH key.
+    
+    Args:
+        ssh_key: SSH key to normalize.
+
+    Returns:
+        Normalized SSH key.
+    """
     ssh_key = ssh_key.strip().replace("\r\n", "\n").replace("\r", "\n")
     if not ssh_key.endswith("\n"):
         ssh_key += "\n"
     return ssh_key
 
-def write_ssh_key_temp(ssh_key: str) -> Path:
+def _write_ssh_key_temp(ssh_key: str) -> Path:
+    """Writes SSH key to temporary file.
+
+    **Warning:** Temporary file will not be automaticaly deleted.
+    
+    Args:
+        ssh_key: SSH key to write (plain text).
+
+    Returns:
+        Path to SSH key temporary file.
+    """
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
         f.write(ssh_key)
         key_path = Path(f.name)
     key_path.chmod(0o600)
     return key_path
 
-def check_ssh_access(key_path: str) -> bool:
+def _check_ssh_access(key_path: str) -> bool:
+    """Checks SSH access.
+    
+    Args:
+        key_path: Path to SSH key file.
+    
+    Returns:
+        True if SSH access is valid.
+    """
     result = subprocess.run(
         [
             "ssh",
@@ -330,11 +540,19 @@ def check_ssh_access(key_path: str) -> bool:
     return "successfully authenticated" in result.stdout + result.stderr
 
 def validate_ssh_key(key: str) -> str | None:
+    """Validates SSH key.
+    
+    Args:
+        key: SSH key to validate (plain text).
+
+    Returns:
+        None if valid otherwise str validation error. 
+    """
     # lengh check
     if len(key) > 10_000:
         return "SSH key too large"
     # ssh-keygen check
-    path = write_ssh_key_temp(key)
+    path = _write_ssh_key_temp(key)
     try:
         # check structure
         try:
@@ -359,7 +577,7 @@ def validate_ssh_key(key: str) -> str | None:
         except subprocess.CalledProcessError:
             return "SSH key is encrypted"
         # check access
-        if not check_ssh_access(str(path)):
+        if not _check_ssh_access(str(path)):
             return "SSH key does not provide required permissions"
     except subprocess.TimeoutExpired:
         return "SSH key check timed out"
@@ -367,24 +585,3 @@ def validate_ssh_key(key: str) -> str | None:
         return "Failed to validate SSH key"
     finally:
         path.unlink(missing_ok=True)
-
-def render_repo(src_path: Path, dest_path: Path) -> None:
-    start = time.monotonic()
-    for path in src_path.rglob("*"):
-        if time.monotonic() - start > MAX_RENDER_TIME: 
-            raise TimeoutError()
-        if not path.is_file(): continue
-        if not sections.is_text(path): continue
-        path_size = path.stat().st_size
-        if not path_size: continue
-        if path_size > MAX_RENDER_FILE_SIZE: continue
-        ftype = sections.detect_file_type(path)
-        if ftype == "markdown":
-            html = sections.render_markdown(path.read_text(errors="replace"))
-        elif ftype == "code":
-            html = sections.highlight_code(path.read_text(errors="replace"), path.name)
-        else:
-            continue
-        html_path = dest_path / (str(path.relative_to(src_path)) + ".html")
-        html_path.parent.mkdir(parents=True, exist_ok=True)
-        html_path.write_text(html)
