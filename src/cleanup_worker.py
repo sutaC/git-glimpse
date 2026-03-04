@@ -1,8 +1,5 @@
-from dotenv import load_dotenv
-load_dotenv()
-# ensures loaded .env in modules
 from src.globals import CLEANUP_CACHE_PATH, DATABASE_PATH, REPO_PATH, SIZE_CACHE_PATH
-from src.lib.git import remove_extracted_artifacts, remove_protected_dir
+from src.lib.git import RepoLockError, remove_extracted_artifacts, remove_protected_dir, RepoLock
 from src.lib.utils import timestamp_to_str
 from src.lib import emails, logger as lg
 from src.lib.database import Database
@@ -11,13 +8,16 @@ from time import time
 import json
 
 # --- repos
-def cleanup_repos(db: Database) -> int:
+def _cleanup_repos(db: Database) -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
         user_id: int | None = db._fetch_value("SELECT `user_id` FROM `repos` WHERE `id` = ?;", (item.name,))
         if not user_id: # Repo id not in db
-            remove_protected_dir(item)
+            try:
+                with RepoLock(item):
+                    remove_protected_dir(item)
+            except RepoLockError: continue
             count += 1
             continue
         user_exists = db._fetch_exists("SELECT 1 FROM `users` WHERE `id` = ?;", (user_id,))
@@ -30,32 +30,35 @@ def cleanup_repos(db: Database) -> int:
     return count
 
 # --- extracted
-def cleanup_extracted() -> int:
+def _cleanup_extracted() -> int:
     count = 0
     for item in REPO_PATH.iterdir():
         if not item.is_dir(): continue
-        if remove_extracted_artifacts(item):
-            count += 1
+        try:
+            with RepoLock(item):
+                if remove_extracted_artifacts(item):
+                    count += 1
+        except RepoLockError: continue
     # removes cached size
     SIZE_CACHE_PATH.unlink(missing_ok=True)
     return count
 
 # --- sessions
-def cleanup_sessions(db: Database) -> int:
+def _cleanup_sessions(db: Database) -> int:
     c = db._cursor()
     c.execute("DELETE FROM `sessions` WHERE `expires` < unixepoch();")
     db._commit()
     return c.rowcount
 
 # --- tokens
-def cleanup_tokens(db: Database) -> int:
+def _cleanup_tokens(db: Database) -> int:
     c = db._cursor()
     c.execute("DELETE FROM `tokens` WHERE `expires` < unixepoch();")
     db._commit()
     return c.rowcount
 
 # --- builds
-def cleanup_builds(db: Database) -> int:
+def _cleanup_builds(db: Database) -> int:
     c = db._cursor()
     c.execute('''
             DELETE FROM `builds`
@@ -82,7 +85,7 @@ def cleanup_builds(db: Database) -> int:
     return c.rowcount
 
 # --- repo views
-def cleanup_repo_views(db: Database) -> int:
+def _cleanup_repo_views(db: Database) -> int:
     c = db._cursor()
     cday = int(time() / 86400)
     c.execute('DELETE FROM `repo_views` WHERE `day` < ? - 30;', (cday,))
@@ -90,7 +93,7 @@ def cleanup_repo_views(db: Database) -> int:
     return c.rowcount
 
 # --- inactive users
-def flag_inactive_users(db: Database) -> int:
+def _flag_inactive_users(db: Database) -> int:
     c = db._cursor()
     users = c.execute('''
         SELECT `id`, `is_verified`, `email`, `login`, `last_login` FROM `users` 
@@ -119,7 +122,7 @@ def flag_inactive_users(db: Database) -> int:
         )
     return len(users)
 
-def cleanup_inactive_users_repos(db: Database) -> int:
+def _cleanup_inactive_users_repos(db: Database) -> int:
     c = db._cursor()
     users = c.execute('''
         SELECT `id`, `is_verified`, `email`, `login`
@@ -136,7 +139,10 @@ def cleanup_inactive_users_repos(db: Database) -> int:
         c.execute('UPDATE `repos` SET `hidden` = 1 WHERE `user_id` = ? AND `hidden` = 0;', (uid,))
         for rid in repos:
             rpath = REPO_PATH / rid[0]
-            remove_protected_dir(rpath)
+            try:
+                with RepoLock(rpath):
+                    remove_protected_dir(rpath)
+            except RepoLockError: continue
         if not is_verified: continue
         emails.send_email(
             emails.EmailIntent.REPO_REMOVAL,
@@ -162,6 +168,11 @@ class CleanupData(NamedTuple):
     cl_inactive_users_repos: int
 
 def get_last_cleanup() -> CleanupData | None:
+    """Gives last saved cleanup statistics.
+    
+    Returns:
+        The interface CleanupData if found, otherwise None.
+    """
     if not CLEANUP_CACHE_PATH.exists(): return None
     try:
         with open(CLEANUP_CACHE_PATH, "r") as cf:
@@ -170,20 +181,24 @@ def get_last_cleanup() -> CleanupData | None:
     except: return None
 
 # --- main
-def main():
+def run_cleanup() -> None:
+    """Run full cleanup.
+    
+    This function saves resulst in file stored in `data/`.
+    """
     try:
         ts_start = time()
         lg.log(lg.Event.CLEANUP_STARTED)
         db = Database(DATABASE_PATH, raw_mode=True)
         db.init_db()
-        cl_repos = cleanup_repos(db)
-        cl_extracted = cleanup_extracted()
-        cl_builds = cleanup_builds(db)
-        cl_sessions = cleanup_sessions(db)
-        cl_tokens = cleanup_tokens(db)
-        cl_repo_views = cleanup_repo_views(db)
-        cl_inactive_users_repos = cleanup_inactive_users_repos(db)
-        cl_flag_inactive_users = flag_inactive_users(db)
+        cl_repos = _cleanup_repos(db)
+        cl_extracted = _cleanup_extracted()
+        cl_builds = _cleanup_builds(db)
+        cl_sessions = _cleanup_sessions(db)
+        cl_tokens = _cleanup_tokens(db)
+        cl_repo_views = _cleanup_repo_views(db)
+        cl_inactive_users_repos = _cleanup_inactive_users_repos(db)
+        cl_flag_inactive_users = _flag_inactive_users(db)
         db._close()
         ts_end = time()
         duration = int((ts_end-ts_start)*1000)
@@ -221,4 +236,4 @@ def main():
         lg.log(lg.Event.CLEANUP_FAILED, lg.Level.ERROR)
 
 if __name__ == "__main__":
-    main()
+    run_cleanup()

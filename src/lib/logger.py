@@ -1,16 +1,20 @@
+"""Module provides functions for simple stdout event logging."""
 from datetime import datetime
+from typing import Any
 import json
 import os
 
 _ENV = os.environ.get("ENV")
 
 class Level:
+    """Levels for logging."""
     INFO = "INFO"
     DEBUG = "DEBUG"
     ERROR = "ERROR"
     WARN = "WARN"
 
 class Event:
+    """Events for logging."""
     # Server
     SERVER_INTERNAL_ERROR = "server.internal.error"
     # Worker
@@ -64,6 +68,7 @@ class Event:
     REPO_VIEW_ADDED = "repo.view.added"
 
 class Code:
+    """Codes for logging."""
     LIMIT_MAX_SIZE = "LIMIT_MAX_SIZE"
     LIMIT_MAX_FILE = "LIMIT_MAX_FILE"
     LIMIT_MAX_FILES = "LIMIT_MAX_FILES"
@@ -81,7 +86,7 @@ class Code:
     INVALID_PASSWORD = "INVALID_PASSWORD"
     NETWORK_ERROR = "NETWORK_ERROR"
 
-USER_MESSAGES = {
+USER_MESSAGES: dict[str, str] = {
     Code.LIMIT_MAX_SIZE: "Repository exceeds 100 MB limit",
     Code.LIMIT_MAX_FILE: "One of your files exceeds 10 MB limit",
     Code.LIMIT_MAX_FILES: "Repository contains more than 10,000 files",
@@ -97,8 +102,9 @@ USER_MESSAGES = {
     Code.REPO_PERMISSION_DENIED: "Permission denied, check your deploy key access or if url is correct",
     Code.NETWORK_ERROR: "Network error, try again later"
 }
+"""Default user messages per Code."""
 
-DEFAULT_LEVELS = {
+DEFAULT_LEVELS: dict[str, str] = {
     Code.LIMIT_MAX_SIZE: "WARN",
     Code.LIMIT_MAX_FILE: "WARN",
     Code.LIMIT_MAX_FILES: "WARN",
@@ -113,6 +119,8 @@ DEFAULT_LEVELS = {
     Code.REPO_LOCK_ACQUISITION: "ERROR",
     Code.NETWORK_ERROR: "ERROR"
 }
+"""Default levels per Code."""
+
 
 def log(
     event: str, 
@@ -121,8 +129,21 @@ def log(
     build_id: int | None = None,
     repo_id: str | None = None,
     user_id: int | None = None,
-    extra = None
+    extra: dict[str, Any] | None = None
     ) -> None:
+    """Logs given event to stdout.
+
+    Prints logs to stdout. If enviroment is set to `prod` then logs with `DEBUG` level will be skipped.
+    
+    Args:
+        event: Event to log (use `Event` class).
+        level: Log level (use `Level` class, otherwise will use default)).
+        code: Logs code (use `Code` class, otherwise will use default).
+        build_id: Build id correlated to this event (if revelant).
+        repo_id: Repo id correlated to this event (if revelant).
+        user_id: User id correlated to this event (if revelant).
+        extra: Additional values to include in logged event.
+    """
     if _ENV == 'prod' and level == Level.DEBUG: return
     entry = {
         "ts": datetime.now().isoformat(),

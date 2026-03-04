@@ -1,0 +1,6 @@
+loaders:
+    - type: python
+      search_path: [src]
+
+renderer:
+    type: markdown

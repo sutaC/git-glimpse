@@ -1,5 +1,5 @@
 from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from src.lib import emails, utils, auth, git, sections, logger as lg
+from src.lib import render, track, emails, utils, auth, git, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
@@ -104,8 +104,8 @@ def repos(repo_id: str, sub: str):
         "repos.html", 
         repo_id=repo_id,
         repo_name=repo.name,
-        parent_chain=sections.build_parentchain(path, repo_path),
-        section=sections.build_section(path)
+        parent_chain=render.build_parentchain(path, repo_path),
+        section=render.build_section(path)
     ))
     # Handles repos views
     day = int(time.time() // 86400)
@@ -113,10 +113,10 @@ def repos(repo_id: str, sub: str):
     viewed = request.cookies.get(rv_key)
     if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-        if g.user: vhash = utils.viewer_hash(day, user_id=g.user.user_id)
-        else: vhash = utils.viewer_hash(day, ip=ip, ua=request.user_agent.string)
-        client = utils.detect_client(request.user_agent.string)
-        location = utils.detect_location(ip)
+        if g.user: vhash = track.viewer_hash(day, user_id=g.user.user_id)
+        else: vhash = track.viewer_hash(day, ip=ip, ua=request.user_agent.string)
+        client = track.detect_client(request.user_agent.string)
+        location = track.detect_location(ip)
         added = db.add_repo_view(repo_id, vhash, client, location)
         if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
@@ -141,16 +141,17 @@ def raw(repo_id: str, sub: str):
         # Downloading repo archive
         with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
             zip_path = Path(tmp.name)
-            git.zip_repo(path, zip_path)
+            try:
+                with git.RepoLock(repo_path):
+                    git.zip_dir(path, zip_path)
+            except git.RepoLockError:
+                abort(500, "Could not generate zip archive, try again later.")
             return send_file(
                 zip_path,
                 mimetype="application/zip",
                 download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
-        archive_path = repo_path / git.ARTIFACT_NAME
-        if not archive_path.exists(): abort(404)
-        return send_file(archive_path, mimetype="application/x-tar", as_attachment=True)
     return send_file(path, mimetype="text/plain", as_attachment=False)
 
 @app.route("/repos/add", methods=["GET", "POST"])
@@ -207,7 +208,7 @@ def login():
     send_password = request.form.get("password", "").strip()
     if not send_login or not send_password: 
         return render_template("login.html", error_msg="Missing login or password", login=send_login, next_url=next_url)
-    user = db.get_user_password(send_login)
+    user = db.get_user_auth(send_login)
     if not user: 
         lg.log(lg.Event.AUTH_LOGIN_FAILURE, lg.Level.WARN, lg.Code.USER_NOT_FOUND, extra={"login": send_login})
         return render_template("login.html", error_msg="Invalid login or password", login=send_login, next_url=next_url)
@@ -316,7 +317,7 @@ def repos_details(repo_id: str):
     limits = db.get_user_limits(repo.user_id)
     if not limits: abort(404, "Could not find user data")
     build_count = db.count_user_builds(g.user.user_id)
-    visits = db.count_repo_visits(repo_id)
+    visits = db.count_repo_views(repo_id)
     return render_template(
         "repos_details.html",
         repo_id=repo_id,
@@ -363,7 +364,12 @@ def repos_remove(repo_id: str):
     if not user_id or user_id != g.user.user_id: abort(404)
     db.delete_repo(repo_id)
     path = REPO_PATH / repo_id
-    if path.exists(): git.remove_protected_dir(path)
+    if path.exists(): 
+        try:
+            with git.RepoLock(path):
+                git.remove_protected_dir(path)
+        except git.RepoLockError:
+            pass # Will be cleaned up by cleanup worker later
     lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
     return redirect("/dashboard")
 
@@ -396,7 +402,7 @@ def user_remove():
         abort(400, "Cannot remove root user")
     send_password = request.form.get("password")
     if not send_password: abort(404, "Password is required for that action")
-    user = db.get_user_password(g.user.login)
+    user = db.get_user_auth(g.user.login)
     assert user is not None
     if not auth.check_password(send_password, user.password):  
         abort(404, "Incorrect password")
@@ -439,7 +445,7 @@ def admin():
 @auth.role_required('a')
 def admin_cleanup():
     lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
-    cworker.main()
+    cworker.run_cleanup()
     return redirect("/admin")
 
 @app.route("/admin/repos")
@@ -730,7 +736,7 @@ def password_change():
     pass_err = utils.is_valid_password(n_pass)
     if pass_err:
         return render_template("password_change.html", error_msg=pass_err)
-    user = db.get_user_password(g.user.login)
+    user = db.get_user_auth(g.user.login)
     assert user is not None
     if not auth.check_password(c_pass, user.password):
         lg.log(lg.Event.AUTH_PASSWORD_CHANGE_FAILURE,  lg.Level.WARN, user_id=user.id)
