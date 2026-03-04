@@ -1,7 +1,7 @@
 """Module provides interface for handing git repositories."""
 from src.globals import REPO_PATH, SIZE_CACHE_PATH
+from src.lib import render, logger as lg
 from cryptography.fernet import Fernet 
-from src.lib import sections, logger as lg
 from typing import Literal
 from pathlib import Path
 import zstandard as zstd
@@ -270,15 +270,15 @@ def _render_repo(src_path: Path, dest_path: Path) -> None:
         if time.monotonic() - start > _MAX_RENDER_TIME: 
             raise TimeoutError()
         if not path.is_file(): continue
-        if not sections.is_text(path): continue
+        if not render.is_text(path): continue
         path_size = path.stat().st_size
         if not path_size: continue
         if path_size > _MAX_RENDER_FILE_SIZE: continue
-        ftype = sections.detect_file_type(path)
+        ftype = render.detect_file_type(path)
         if ftype == "markdown":
-            html = sections.render_markdown(path.read_text(errors="replace"))
+            html = render.render_markdown(path.read_text(errors="replace"))
         elif ftype == "code":
-            html = sections.highlight_code(path.read_text(errors="replace"), path.name)
+            html = render.render_code(path.read_text(errors="replace"), path.name)
         else:
             continue
         html_path = dest_path / (str(path.relative_to(src_path)) + ".html")
@@ -425,7 +425,7 @@ def zip_dir(src_path: Path, dest_path: Path) -> None:
 def get_total_repos_size() -> int:
     """Calculates total repositories size.
 
-    This function uses cache file stored at `data/repos/` valid for 15 minutes.
+    This function uses cache file stored in `data/` valid for 15 minutes.
     
     Returns:
         Total size of all repositories.

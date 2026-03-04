@@ -1,6 +1,8 @@
+"""Module provides interface for sending emails using intents."""
 from email.message import EmailMessage
 from dataclasses import dataclass
 from markupsafe import escape
+from typing import Callable
 import src.lib.logger as lg
 import smtplib
 import os
@@ -8,14 +10,15 @@ import os
 _ENV = os.environ.get("ENV", "dev")
 _DOMAIN = os.environ.get("DOMAIN", "")
 _CONTACT = os.environ.get("CONTACT_EMAIL", "")
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASS = os.environ.get("SMTP_PASS", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", "")
+_SMTP_HOST = os.environ.get("_SMTP_HOST", "")
+_SMTP_PORT = int(os.environ.get("_SMTP_PORT", 587))
+_SMTP_USER = os.environ.get("_SMTP_USER", "")
+_SMTP_PASS = os.environ.get("__SMTP_PASS", "")
+_SMTP_FROM = os.environ.get("_SMTP_FROM", "")
 
-# intents
+# --- intents ---
 class EmailIntent:
+    """Email intent codes."""
     EMAIL_VERIFICATION = "intent.email.verification"
     PASSWORD_RECOVERY = "intent.password.recovery"
     INACTIVE_ACCOUNT = "intent.inactive.account"
@@ -24,57 +27,79 @@ class EmailIntent:
     ACCOUNT_UNBANNED = "intent.account.ubbanned"
 
 @dataclass(frozen=True)
-class EmailIntentSpec:
+class _EmailIntentSpec:
+    """Email intent specs for sending."""
     subject: str
     requires_verified: bool
     required_fields: frozenset[str]
 
-INTENTS: dict[str, EmailIntentSpec] = {
-    EmailIntent.EMAIL_VERIFICATION: EmailIntentSpec(
+_INTENTS: dict[str, _EmailIntentSpec] = {
+    EmailIntent.EMAIL_VERIFICATION: _EmailIntentSpec(
         subject="Verify your email address - Git Glimpse",
         requires_verified=False,
         required_fields=frozenset({"user", "token", "expires"})
     ),
-    EmailIntent.PASSWORD_RECOVERY: EmailIntentSpec(
+    EmailIntent.PASSWORD_RECOVERY: _EmailIntentSpec(
         subject="Reset your Git Glimpse password",
         requires_verified=True,
         required_fields=frozenset({"user", "token", "expires"})
     ),
-    EmailIntent.INACTIVE_ACCOUNT: EmailIntentSpec(
+    EmailIntent.INACTIVE_ACCOUNT: _EmailIntentSpec(
         subject="Your Git Glimpse account has been inactive",
         requires_verified=True,
         required_fields=frozenset({"user", "last_login"})
     ),
-    EmailIntent.REPO_REMOVAL: EmailIntentSpec(
+    EmailIntent.REPO_REMOVAL: _EmailIntentSpec(
         subject="Your Git Glimpse repositories were removed due to inactivity",
         requires_verified=True,
         required_fields=frozenset({"user"})
     ),
-    EmailIntent.ACCOUNT_BANNED: EmailIntentSpec(
+    EmailIntent.ACCOUNT_BANNED: _EmailIntentSpec(
         subject="Your Git Glimpse account has been banned",
         requires_verified=True,
         required_fields=frozenset({"user", "reason"})
     ),
-    EmailIntent.ACCOUNT_UNBANNED: EmailIntentSpec(
+    EmailIntent.ACCOUNT_UNBANNED: _EmailIntentSpec(
         subject="Access restored to your Git Glimpse account",
         requires_verified=True,
         required_fields=frozenset({"user"})
     )
 }
+"""Email inntent codes mapped to EmailIntentSepecs."""
 
-# templates
+# --- templating ---
 def _get_base_url() -> str:
+    """Gives base service URL.
+    
+    Returns:
+        Base service URL.
+    """
     if _ENV == "prod": return f"https://{_DOMAIN}"
     return "http://127.0.0.1:5000"
 
 def _email_footer() -> str:
+    """Gives email footer.
+    
+    Returns:
+        Email footer.
+    """
     return f'''
 —
 Git Glimpse
 {_get_base_url()}
 '''
 
-def tpl_email_verification(*, user: str, token: str, expires: str) -> str:
+def _tpl_email_verification(*, user: str, token: str, expires: str) -> str:
+    """Renders template for verification email.
+    
+    Args:
+        user: User login.
+        token: Verification token.
+        expires: Token expiriation date.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -89,7 +114,17 @@ If you didn’t create this account, you can safely ignore this email.
 {_email_footer()}
 '''.strip()
 
-def tpl_password_recovery(*, user: str,  token: str, expires: str) -> str:
+def _tpl_password_recovery(*, user: str,  token: str, expires: str) -> str:
+    """Renders template for password recovery email.
+    
+    Args:
+        user: User login.
+        token: Password recovery token.
+        expires: Token expiriation date.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -104,7 +139,16 @@ If you didn’t request this reset, you can ignore this email.
 {_email_footer()}
 '''.strip()
 
-def tpl_inactive_account(*, user: str,  last_login: str) -> str:
+def _tpl_inactive_account(*, user: str,  last_login: str) -> str:
+    """Renders template for inactive account email.
+    
+    Args:
+        user: User login.
+        last_login: Last login date.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -120,7 +164,15 @@ Logging in at any time will prevent this.
 {_email_footer()}
 '''.strip()
 
-def tpl_repo_removal(*, user: str) -> str:
+def _tpl_repo_removal(*, user: str) -> str:
+    """Renders template for repository removal email.
+    
+    Args:
+        user: User login.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -134,7 +186,16 @@ Login here:
 {_email_footer()}
 '''.strip()
 
-def tpl_account_banned(*, user: str, reason: str | None) -> str:
+def _tpl_account_banned(*, user: str, reason: str | None) -> str:
+    """Renders template for account banned email.
+    
+    Args:
+        user: User login.
+        reason: Ban reason.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -148,7 +209,15 @@ You no longer have access to your account or repositories.
 {_email_footer()}
 '''.strip()
 
-def tpl_account_unbanned(*, user: str) -> str:
+def _tpl_account_unbanned(*, user: str) -> str:
+    """Renders template for account unbanned email.
+    
+    Args:
+        user: User login.
+
+    Returns:
+        Email content.
+    """
     return f'''
 Hello {escape(user)},
 
@@ -159,46 +228,87 @@ You can log in here:
 {_email_footer()}
 '''.strip()
 
-TEMPLATES = {
-    EmailIntent.EMAIL_VERIFICATION: tpl_email_verification,
-    EmailIntent.PASSWORD_RECOVERY: tpl_password_recovery,
-    EmailIntent.INACTIVE_ACCOUNT: tpl_inactive_account,
-    EmailIntent.REPO_REMOVAL: tpl_repo_removal,
-    EmailIntent.ACCOUNT_BANNED: tpl_account_banned,
-    EmailIntent.ACCOUNT_UNBANNED: tpl_account_unbanned,
+_TEMPLATES: dict[str, Callable[..., str]] = {
+    EmailIntent.EMAIL_VERIFICATION: _tpl_email_verification,
+    EmailIntent.PASSWORD_RECOVERY: _tpl_password_recovery,
+    EmailIntent.INACTIVE_ACCOUNT: _tpl_inactive_account,
+    EmailIntent.REPO_REMOVAL: _tpl_repo_removal,
+    EmailIntent.ACCOUNT_BANNED: _tpl_account_banned,
+    EmailIntent.ACCOUNT_UNBANNED: _tpl_account_unbanned,
 }
+"""Template intent codes mapped to templating functions."""
 
-# functionality
+def _render_email(intent: str, **ctx) -> str:
+    """Renders email.
+    
+    Args:
+        intent: Email intent code (email address).
+        ctx: Values used for email rendering.
+
+    Returns:
+        Rendered email.
+
+    Raises:
+        ValueError: When invalid template intent code is provided.
+    """
+    tpl = _TEMPLATES.get(intent)
+    if not tpl: raise ValueError(f"No template for intent: {intent}")
+    return tpl(**ctx)
+
+# --- sending ---
 def _send_backend_stdout(to: str, subject: str, body: str) -> None:
+    """Sends email to stdout.
+    
+    Args:
+        to: Email recipient (email address).
+        subject: Email subject.
+        body: Email body.
+    """
     print(f"------- to: '{to}'\n-- subject: '{subject}'")
     for line in body.splitlines():
         if line: print(f'>\t{line}')
     return
 
 def _send_backend_smtp(to: str, subject: str, body: str) -> None:
+    """Sends email via smtp.
+    
+    Args:
+        to: Email recipient.
+        subject: Email subject.
+        body: Email body.
+    """
     msg = EmailMessage()
-    msg["From"] = SMTP_FROM
+    msg["From"] = _SMTP_FROM
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+    with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=10) as smtp:
         smtp.starttls()
-        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.login(_SMTP_USER, _SMTP_PASS)
         smtp.send_message(msg)
-        
-def render_email(intent: str, **ctx) -> str:
-    tpl = TEMPLATES.get(intent)
-    if not tpl: raise ValueError(f"No template for intent: {intent}")
-    return tpl(**ctx)
 
 def send_email(intent: str, *, to: str, is_verified: bool, user_id: int, **ctx) -> None:
-    spec = INTENTS.get(intent)
+    """Sends email.
+
+    Args:
+        intent: Email intent code (use `EmailInetent` class).
+        to: Email recipient (email address).
+        is_verified: Is receiving user verified.
+        user_id: Id of receiving user.
+        ctx: Values used for email rendering.
+
+    Raises:
+        ValueError: When provided email intent is invalid.
+        ValueError: When intent requires verified user and user is not verified.
+        PermissionError: When intent required rendering field is not provided.
+    """
+    spec = _INTENTS.get(intent)
     if not spec: raise ValueError("Unknown email intent")
-    if spec.requires_verified and not is_verified: raise ValueError(f"Intent {intent} requires verification")
+    if spec.requires_verified and not is_verified: raise PermissionError(f"Intent {intent} requires verification")
     missing = spec.required_fields - ctx.keys()
     if missing: raise ValueError(f"Missing fields for {intent}: {missing}")
     subject = spec.subject
-    body = render_email(intent, **ctx)
+    body = _render_email(intent, **ctx)
     try:
         if _ENV == "prod": _send_backend_smtp(to, subject, body)
         else: _send_backend_stdout(to, subject, body)

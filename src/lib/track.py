@@ -1,3 +1,4 @@
+"""Module provides functions for user information detection."""
 from hashlib import sha256
 from requests import get
 

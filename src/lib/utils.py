@@ -1,6 +1,4 @@
-"""This module provides basic utility functions for purposes like:
-- User input validation
-- Parsing data for templates
+"""Module provides basic utility functions for user input validation and parsing data for templates.
 """
 from src.lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
 from datetime import datetime, timezone

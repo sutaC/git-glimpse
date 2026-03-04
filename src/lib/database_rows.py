@@ -1,3 +1,4 @@
+"""Module provides data types fetched by `lib.database` module."""
 from typing import Literal, NamedTuple, TypeVar
 
 RowType = TypeVar("RowType")
