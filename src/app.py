@@ -85,7 +85,7 @@ def rules():
 
 @app.route("/repos/demo")
 def repos_demo():
-    return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}")
+    return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}/")
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")
@@ -113,12 +113,13 @@ def repos(repo_id: str, sub: str):
     viewed = request.cookies.get(rv_key)
     if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-        if g.user: vhash = track.viewer_hash(day, user_id=g.user.user_id)
-        else: vhash = track.viewer_hash(day, ip=ip, ua=request.user_agent.string)
         client = track.detect_client(request.user_agent.string)
-        location = track.detect_location(ip)
-        added = db.add_repo_view(repo_id, vhash, client, location)
-        if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
+        if client != "bot": # Skips bot from db entry
+            if g.user: vhash = track.viewer_hash(day, user_id=g.user.user_id)
+            else: vhash = track.viewer_hash(day, ip=ip, ua=request.user_agent.string)
+            location = track.detect_location(ip)
+            added = db.add_repo_view(repo_id, vhash, client, location)
+            if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
         # Save cookie to prevent mutliple rechecking 
         respone.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
