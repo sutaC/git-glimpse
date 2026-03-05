@@ -1,11 +1,12 @@
-from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g
+from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g, url_for
 from src.lib import render, track, emails, utils, auth, git, logger as lg
-from src.globals import REPO_PATH, DATABASE_PATH
+from src.globals import REPO_PATH, DATABASE_PATH, STATIC_MANIFEST_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
 from dotenv import load_dotenv
 from pathlib import Path
 import src.cleanup_worker as cworker
+import json
 import time
 import os
 
@@ -24,10 +25,37 @@ db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
 
-# --- request handlers
+# --- static file managment ---
+static_manifest: dict[str, str] = {} 
+if STATIC_MANIFEST_PATH.exists():
+    try:
+        static_manifest = json.loads(STATIC_MANIFEST_PATH.read_text())
+    except json.JSONDecodeError: pass
+
+def static_file(name: str) -> str:
+    """Gives URL for static file.
+
+    In `debug` mode it will serve regular files and in `prod` mode it will served build minified version for caching.
+    If file is not included in `static/dist/` the function will return regular path. 
+
+    Args:
+        name: Path to resource in static directory.
+
+    Returns:
+        URL for resource.
+    """
+    if app.debug: return url_for("static", filename=name)
+    hashed = static_manifest.get(name)
+    if not hashed: return url_for("static", filename=name)
+    return url_for("static", filename=f"dist/{hashed}")
+
+# --- request handlers ---
 @app.context_processor
 def inject_contact_email():
-    return dict(contact_email=os.getenv("CONTACT_EMAIL", "contact@example.com"))
+    return dict(
+        contact_email=os.getenv("CONTACT_EMAIL", "contact@example.com"), 
+        static_file=static_file
+    )
 
 @app.teardown_appcontext
 def db_close(error=None):
@@ -74,7 +102,7 @@ def handle_errors(e):
         message=str(e) if app.debug else None
     ), code
 
-# --- route handlers
+# --- route handlers ---
 @app.route("/")
 def root():
     return render_template("index.html")

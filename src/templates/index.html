@@ -2,7 +2,7 @@
 <!-- prettier-ignore -->
 {% block title %}Home | Git Glimpse{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="{{url_for('static', filename='styles/homepage.css')}}" />
+<link rel="stylesheet" href="{{static_file('styles/homepage.css')}}" />
 {% endblock %}
 
 <!-- prettier-ignore -->
@@ -17,7 +17,7 @@
 <!-- prettier-ignore -->
 {% block content %}
 <div class="hero">
-    <img class="logo" src="{{url_for('static', filename='images/logo.svg')}}" alt="Git Glimpse" />
+    <img class="logo" src="{{static_file('images/logo.svg')}}" alt="Git Glimpse" />
     <h1>Share GitHub Repositories</h1>
     <p class="subscript">
         Git Glimpse is a simple self-hosted application for sharing private GitHub repositories with

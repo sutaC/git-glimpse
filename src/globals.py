@@ -8,6 +8,7 @@ REPO_PATH =  DATA_PATH / "repos"
 DATABASE_PATH = DATA_PATH / "db.sqlite"
 SIZE_CACHE_PATH = DATA_PATH / ".size.json"
 CLEANUP_CACHE_PATH = DATA_PATH / ".cleanup.json"
+STATIC_MANIFEST_PATH = PROJECT_ROOT_PATH / "src" / "static" / "dist" / "manifest.json"
 
 DATA_PATH.mkdir(exist_ok=True)
 REPO_PATH.mkdir(exist_ok=True)

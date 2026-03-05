@@ -107,6 +107,50 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
 
     > After initializing the database, this is the **only** way to change the root password.
 
+## Configuring project with NGINX
+
+Example NGINX configuration for this project:
+
+```
+http {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
+}
+
+server {
+    server_name _;
+    listen 80;
+    # In production you should use `listen 443 ssl;` for HTTPS connections.
+
+    location / {
+        limit_req zone=req_limit_per_ip burst=10 nodelay;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+    }
+
+    location /static/ {
+        alias /src/static/; # Path to project src static
+        access_log off;
+        gzip_static on;
+        expires 1h;
+        try_files $uri =404;
+    }
+
+    location /static/dist/ {
+        alias /src/static/dist/; # Path to project src static dist
+        access_log off;
+        expires 1y;
+        etag on;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+}
+```
+
 ## Removing production systems
 
 To completely remove the production setup, use the provided helper scripts:

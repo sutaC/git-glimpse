@@ -5,9 +5,9 @@
 {% block title %}{% if not section.is_root %}{{section.name}} | {% endif %}{{repo_name}} | Git Glimpse{% endblock %}
 {% block head %}
 {% if section.type == "file" and section.file_type == "code" %}
-<link rel="stylesheet" href="{{url_for('static', filename='styles/pygments.css')}}" />
+<link rel="stylesheet" href="{{static_file('styles/pygments.css')}}" />
 {% endif %}
-<script src="{{url_for('static', filename='js/lazy_file_load.js')}}" defer></script>
+<script src="{{static_file('js/lazy_file_load.js')}}" defer></script>
 {% endblock %}
 
 <!-- prettier-ignore -->
