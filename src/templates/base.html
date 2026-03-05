@@ -30,11 +30,20 @@
     <body>
         <header>
             <a href="/" class="logo">
-                <img src="{{url_for('static', filename='images/logo.svg')}}" alt="Git Glimpse" />
+                <img
+                    src="{{url_for('static', filename='images/logo.svg')}}"
+                    alt="Git Glimpse"
+                    fetchpriority="high"
+                />
                 Git Glimpse
             </a>
             <button class="mobile" id="menu_toggle">
-                <img src="{{url_for('static', filename='images/menu_icon.svg')}}" alt="menu" />
+                <img
+                    src="{{url_for('static', filename='images/menu_icon.svg')}}"
+                    height="24"
+                    width="24"
+                    alt="menu"
+                />
             </button>
             <nav>
                 <a href="/">Home</a>

@@ -9,7 +9,7 @@
         {% if section.is_text() %} {# Is text file #}
         {{section.load_content() | safe}}
         {% elif section.file_type == "image" %} {# Is image #}
-        <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" />
+        <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" loading="lazy" />
         {% else %} {# Is not a text file #}
         <small class="empty_msg">Cannot display this file...</small>
         {% endif %}
