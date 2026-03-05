@@ -26,7 +26,7 @@
         <h2>Filters</h2>
     </div>
     <div class="section_content">
-        <form action="/admin/builds" method="get">
+        <form action="/admin/builds" method="get" id="pager-filters">
             <div class="field">
                 <label for="status">Status:</label>
                 <select name="status" id="status">
@@ -63,6 +63,6 @@
         <h2 id="hDisplay">Builds</h2>
         {{ pager(page, is_last) }}
     </div>
-    <div class="section_content">{{ table_builds(builds) }}</div>
+    <div class="section_content" id="pager-output">{{ table_builds(builds) }}</div>
 </section>
 {% endblock %}

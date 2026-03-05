@@ -26,7 +26,7 @@
         <h2>Filters</h2>
     </div>
     <div class="section_content">
-        <form action="/admin/users" method="get">
+        <form action="/admin/users" method="get" id="pager-filters">
             <div class="field">
                 <label for="verified">Verified:</label>
                 <select name="verified" id="verified">
@@ -80,6 +80,6 @@
     <h2 id="hDisplay">Users</h2>
     {{ pager(page, is_last) }}
 </div>
-<div class="section_content">{{ table_users(users) }}</div>
+<div class="section_content" id="pager-output">{{ table_users(users) }}</div>
 </section>
 {% endblock %}

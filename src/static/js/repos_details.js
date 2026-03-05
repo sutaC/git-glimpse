@@ -1,5 +1,6 @@
 const elt_status = document.getElementById("status");
 const elt_status_spinner = document.getElementById("status_spinner");
+
 const status_fetch_url = new URL(location);
 status_fetch_url.searchParams.append("status", "true");
 

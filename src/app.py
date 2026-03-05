@@ -1,4 +1,4 @@
-from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
+from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g
 from src.lib import render, track, emails, utils, auth, git, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH
 from tempfile import NamedTemporaryFile
@@ -305,6 +305,12 @@ def views():
     if not page.isnumeric() or int(page) < 0: page = 0
     else: page = int(page)
     uviews = db.list_user_repo_views(g.user.user_id, offset=(page*10))
+    if request.headers.get("X-Partial"): # Partial table load
+        t_table_views = get_template_attribute("macros/table_views.html", "table_views")
+        return Response(
+            t_table_views(utils.views_to_readable(uviews)), 
+            headers={"Vary": "X-Partial", "X-Last": "1" if len(uviews) < 10 else "0"}
+        )
     cviews = db.count_user_repo_views(g.user.user_id)
     return render_template(
         "views.html",
@@ -479,6 +485,12 @@ def admin_repos():
     url = request.args.get('url', '')
     # ---
     repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key, hidden=hidden)
+    if request.headers.get("X-Partial"): # Partial table load
+        t_table_repos = get_template_attribute("macros/table_repos.html", "table_repos")
+        return Response(
+            t_table_repos(utils.repos_activity_to_readable(repos)), 
+            headers={"Vary": "X-Partial", "X-Last": "1" if len(repos) < 10 else "0"}
+        )
     return render_template(
         "admin_repos.html",
         repos=utils.repos_activity_to_readable(repos),
@@ -507,6 +519,12 @@ def admin_builds():
     code = request.args.get('code')
     # ---
     builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id, code=code)
+    if request.headers.get("X-Partial"): # Partial table load
+        t_table_builds = get_template_attribute("macros/table_builds.html", "table_builds")
+        return Response(
+            t_table_builds(utils.builds_activity_to_readable(builds)), 
+            headers={"Vary": "X-Partial", "X-Last": "1" if len(builds) < 10 else "0"}
+        )
     return render_template(
         "admin_builds.html",
         builds=utils.builds_activity_to_readable(builds),
@@ -546,6 +564,12 @@ def admin_users():
         role=role,
         inactive=inactive
     )
+    if request.headers.get("X-Partial"): # Partial table load
+        t_table_users = get_template_attribute("macros/table_users.html", "table_users")
+        return Response(
+            t_table_users(utils.users_activity_to_readable(users)), 
+            headers={"Vary": "X-Partial", "X-Last": "1" if len(users) < 10 else "0"}
+        )
     return render_template(
         "admin_users.html",
         users=utils.users_activity_to_readable(users),
