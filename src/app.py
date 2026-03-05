@@ -100,6 +100,17 @@ def repos(repo_id: str, sub: str):
     try: path = git.get_repo_path(repo_path, subpath)
     except LookupError: abort(404)
     # Create response
+    if request.headers.get("X-Partial"): # Partial file contents load
+        section = render.build_section(path)
+        if section.type == "dir":
+            assert isinstance(section, render.DirSection)
+            section = section.find_readme_child()
+            if not section: abort(404)
+        assert isinstance(section, render.FileSection)
+        if not section.is_text(): abort(404)
+        # Partial load skipps views handing
+        return Response(section.load_content(), headers={"Vary": "X-Partial"})
+    # Full page load
     respone =  Response(render_template(
         "repos.html", 
         repo_id=repo_id,

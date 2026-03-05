@@ -7,7 +7,7 @@
     <div class="section_content">
         <!-- prettier-ignore -->
         {% if section.is_text() %} {# Is text file #}
-        {{section.load_content() | safe}}
+        <div id="lazy-file-content"></div>
         {% elif section.file_type == "image" %} {# Is image #}
         <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" loading="lazy" />
         {% else %} {# Is not a text file #}

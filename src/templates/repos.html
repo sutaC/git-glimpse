@@ -4,7 +4,10 @@
 {% from "macros/section_dir.html" import section_dir %}
 {% block title %}{% if not section.is_root %}{{section.name}} | {% endif %}{{repo_name}} | Git Glimpse{% endblock %}
 {% block head %}
+{% if section.type == "file" and section.file_type == "code" %}
 <link rel="stylesheet" href="{{url_for('static', filename='styles/pygments.css')}}" />
+{% endif %}
+<script src="{{url_for('static', filename='js/lazy_file_load.js')}}" defer></script>
 {% endblock %}
 
 <!-- prettier-ignore -->
@@ -37,11 +40,14 @@
 <!-- prettier-ignore -->
 {% if section.type == "dir" %} 
     {{ section_dir(section, repo_id, repo_name) }}
-    {% set readme = section.find_readme_child() %}
-    {% if readme %}
+{% set readme = section.find_readme_child() %}
+<!-- prettier-ignore -->
+{% if readme %}
     {{ section_file(readme) }}
-    {% endif %}
-{% elif section.type == "file" %} 
-    {{ section_file(section) }} 
+<!-- prettier-ignore -->
 {% endif %}
+{% elif section.type == "file" %}
+    {{ section_file(section) }}
+<!-- prettier-ignore -->
+{% endif %} 
 {% endblock %}
