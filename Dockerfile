@@ -24,12 +24,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src ./src
 
-COPY scripts/build_static.py ./scripts/build_static.py
-
-RUN python scripts/build_static.py
-
 RUN chown -R appuser:appuser /app
 USER appuser
+
+RUN mkdir -p src/static/dist
 
 EXPOSE 5000
 

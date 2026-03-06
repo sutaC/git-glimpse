@@ -84,22 +84,28 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
     ```bash
     docker build -t git-glimpse .
     ```
-2. Setup storage (one time, requires sudo privileges)
+2. Setup storage: (one time, requires sudo privileges)
 
     ```bash
     ./scripts/setup_storage.sh
     ```
 
-3. Setup cron jobs:
+3. Build static files:
+
+    ```bash
+    docker compose --profile manual run --rm build_static
+    ```
+
+4. Setup cron jobs:
     ```bash
     ./scripts/setup_cron.sh
     ```
     > Schedules the cleanup worker to run once per day via cron.
-4. Start the app:
+5. Start the app:
     ```bash
     docker compose -f docker-compose.yml -f docker-compose.prod.yml up
     ```
-5. Reset root password:
+6. Reset root password:
 
     ```bash
     PROD=1 ./scripts/run_root_passwd.sh --password '<password>'
@@ -147,6 +153,12 @@ server {
         etag on;
         add_header Cache-Control "public, immutable";
         try_files $uri =404;
+    }
+
+    location = /robots.txt {
+        alias /src/static/robots.txt;
+        access_log off;
+        expires 1d;
     }
 }
 ```

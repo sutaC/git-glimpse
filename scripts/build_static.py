@@ -11,8 +11,10 @@ if __name__ == "__main__":
     SRC = PROJECT_ROOT / "src" / "static"
     DIST = SRC / "dist"
 
-    shutil.rmtree(DIST)
-    DIST.mkdir(exist_ok=True)
+    DIST.mkdir(exist_ok=True, parents=True)
+    for child in DIST.iterdir(): 
+        if child.is_dir(): shutil.rmtree(child)
+        else: child.unlink(missing_ok=True)
 
     manifest = {}
 
@@ -20,6 +22,8 @@ if __name__ == "__main__":
         if not path.is_file():
             continue
         if "dist" in path.parts:
+            continue
+        if path.name == "robots.txt":
             continue
         rel = path.relative_to(SRC)
         content: bytes = path.read_bytes()
@@ -36,7 +40,7 @@ if __name__ == "__main__":
         dest.write_bytes(content)
         manifest[str(rel)] = new_name
         # Gzip
-        if path.suffix in [".css", ".js", ".svg", ".txt"]: # Only text files
+        if path.suffix in [".css", ".js", ".svg"]: # Only text files
             with gzip.open(str(dest) + ".gz", "wb") as f:
                 f.write(content)
         # Log
