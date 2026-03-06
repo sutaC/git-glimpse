@@ -1,8 +1,9 @@
-.venv/
+.venv*/
 .vscode/
 __pycache__/
 data/
 logs/
+src/static/dist/
 *.pyc
 *.env
 !.env.example

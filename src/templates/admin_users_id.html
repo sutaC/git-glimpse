@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/csrf_field.html" import csrf_field %}
 <!-- prettier-ignore -->
 {% block title %}{{user_login}} | Users | Admin | Git Glimpse{% endblock %}
 
@@ -85,12 +86,14 @@
             {% endif %}
         </p>
         <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            {{ csrf_field() }}
             <input type="hidden" name="set_banned" value="false" />
             <button type="submit">Unban</button>
         </form>
         {% else %}
         <hr>
         <form action="/admin/users/{{user_id|urlencode}}" method="post" class="centered">
+            {{ csrf_field() }}
             <input type="hidden" name="set_banned" value="true" />
             <div class="field">
                 <label for="ban_reason">Ban reason:</label>
@@ -110,6 +113,7 @@
     <div class="section_content wrap">
         {% if email and role != 'admin' %}
         <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            {{ csrf_field() }}
             <input type="hidden" name="set_verified" value="{{'false' if is_verified else 'true'}}" />
             <button type="submit">{{'Unverify' if is_verified else 'Verify'}}</button>
         </form>
@@ -117,6 +121,7 @@
 
         {% if user_login != "root" %}
         <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            {{ csrf_field() }}
             <input
                 type="hidden"
                 name="set_role"
@@ -132,6 +137,7 @@
         {% endif %}
 
         <form action="/admin/users/{{user_id|urlencode}}" method="post">
+            {{ csrf_field() }}
             <input type="hidden" name="expire" value="true" />
             <button type="submit" {{'' if build_count else 'disabled'}}>Clear build quota</button>
         </form>

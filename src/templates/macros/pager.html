@@ -1,6 +1,6 @@
 {% macro pager(page, is_last) %}
 <div class="pager">
-    <small>Page: {{page}}</small>
+    <small>Page: <output id="pager-num">{{page}}</output></small>
     <div>
         <button
             id="pager-prev"

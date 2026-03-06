@@ -3,6 +3,7 @@ from src.globals import REPO_PATH, SIZE_CACHE_PATH
 from src.lib import render, logger as lg
 from cryptography.fernet import Fernet 
 from typing import Literal
+from hashlib import sha256
 from pathlib import Path
 import zstandard as zstd
 import subprocess
@@ -396,14 +397,18 @@ def get_repo_path(repo_path: Path, sub_path: Path) -> Path:
     """
     ext_path = repo_path / "extracted"
     if not ext_path.exists() or not (repo_path / "html").exists():
-        _extract_repo(repo_path)
+        try: 
+            _extract_repo(repo_path)
+        except FileNotFoundError:
+            lg.log(lg.Event.SERVER_INTERNAL_ERROR, lg.Level.ERROR, lg.Code.MISSING_ARTIFACT_ERROR, repo_id=repo_path.name)
+            raise LookupError()
     path = (ext_path / sub_path).resolve()
     if not path.is_relative_to(ext_path): raise LookupError()
     if path.is_symlink() or any(p.is_symlink() for p in path.parents): raise LookupError()
     if not path.exists(): raise LookupError()
     return path
 
-def zip_dir(src_path: Path, dest_path: Path) -> None:
+def zip_dir(src_path: Path, dest_path: Path) -> str:
     """Packs directory into zip archive.
 
     **Warning:** If this function operates on repository files you should be using `RepoLock`.
@@ -411,6 +416,9 @@ def zip_dir(src_path: Path, dest_path: Path) -> None:
     Args:
         src_path: Source directory to pack.
         dest_path: Destination path where zip archive is written to.
+
+    Returns:
+        Zip hash.
     """
     with zipfile.ZipFile(
         dest_path,
@@ -422,6 +430,7 @@ def zip_dir(src_path: Path, dest_path: Path) -> None:
             arcname = path.relative_to(src_path)
             if path.is_file():
                 zf.write(path, arcname)
+    return sha256(dest_path.read_bytes()).hexdigest()
 
 def get_total_repos_size() -> int:
     """Calculates total repositories size.

@@ -27,6 +27,8 @@ COPY src ./src
 RUN chown -R appuser:appuser /app
 USER appuser
 
+RUN mkdir -p src/static/dist
+
 EXPOSE 5000
 
 CMD ["gunicorn", "-b", "0.0.0.0:5000", "src.wsgi:app"]

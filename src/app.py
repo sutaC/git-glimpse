@@ -1,16 +1,20 @@
-from flask import Flask, Response, render_template, abort, redirect, send_file, request, g
-from src.lib import render, track, emails, utils, auth, git, logger as lg
-from src.globals import REPO_PATH, DATABASE_PATH
+from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g, url_for
+from src.lib import render, track, emails, utils, auth, git, flask_helpers as fh, logger as lg
+from src.globals import REPO_PATH, DATABASE_PATH, STATIC_MANIFEST_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
+from flask_seasurf import SeaSurf
 from dotenv import load_dotenv
+from threading import Thread
 from pathlib import Path
 import src.cleanup_worker as cworker
+import json
 import time
 import os
 
 load_dotenv()
 
+USER_SESSION_COOKIE = "user_token"
 ERROR_PAGE_TITLES = {
     403: "Forbidden",
     404: "Page Not Found",
@@ -18,17 +22,45 @@ ERROR_PAGE_TITLES = {
 }
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+app.secret_key = os.environ.get("SECRET_KEY")
+
+csrf = SeaSurf(app)
 
 db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
 
-# --- request handlers
-@app.context_processor
-def inject_contact_email():
-    return dict(contact_email=os.getenv("CONTACT_EMAIL", "contact@example.com"))
+admin_cleanup_running: bool = False
 
+# --- static file managment ---
+static_manifest: dict[str, str] = {} 
+if STATIC_MANIFEST_PATH.exists():
+    try:
+        static_manifest = json.loads(STATIC_MANIFEST_PATH.read_text())
+    except json.JSONDecodeError: pass
+
+def static_file(name: str) -> str:
+    """Gives URL for static file.
+
+    In `debug` mode it will serve regular files and in `prod` mode it will served build minified version for caching.
+    If file is not included in `static/dist/` the function will return regular path. 
+
+    Args:
+        name: Path to resource in static directory.
+
+    Returns:
+        URL for resource.
+    """
+    if app.debug: return url_for("static", filename=name)
+    hashed = static_manifest.get(name)
+    if not hashed: return url_for("static", filename=name)
+    return url_for("static", filename=f"dist/{hashed}")
+
+#  --- jinja globals ---
+app.jinja_env.globals["contact_email"] = os.getenv("CONTACT_EMAIL", "contact@example.com")
+app.jinja_env.globals["static_file"] = static_file
+
+# --- request handlers ---
 @app.teardown_appcontext
 def db_close(error=None):
     db._close()
@@ -37,7 +69,7 @@ def db_close(error=None):
 def load_user():
     g.clear_session_cookie = False
     g.user = None
-    session_id = request.cookies.get("session_id")
+    session_id = request.cookies.get(USER_SESSION_COOKIE)
     if not session_id: return
     session = db.get_session(session_id)
     if not session: return
@@ -54,8 +86,8 @@ def load_user():
 
 @app.after_request
 def clear_session_cookie(response: Response):
-    if g.clear_session_cookie:
-        response.delete_cookie("session_id")
+    if hasattr(g, "clear_session_cookie") and g.clear_session_cookie:
+        response.delete_cookie(USER_SESSION_COOKIE)
     return response
 
 @app.errorhandler(Exception)
@@ -74,21 +106,24 @@ def handle_errors(e):
         message=str(e) if app.debug else None
     ), code
 
-# --- route handlers
+# --- route handlers ---
 @app.route("/")
+@fh.use_cache()
 def root():
     return render_template("index.html")
 
 @app.route("/rules")
+@fh.use_cache()
 def rules():
     return render_template("rules.html")
 
 @app.route("/repos/demo")
 def repos_demo():
-    return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}")
+    return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}/")
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")
+@fh.use_cache()
 def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_select(repo_id)
@@ -100,29 +135,40 @@ def repos(repo_id: str, sub: str):
     try: path = git.get_repo_path(repo_path, subpath)
     except LookupError: abort(404)
     # Create response
-    respone =  Response(render_template(
-        "repos.html", 
-        repo_id=repo_id,
-        repo_name=repo.name,
-        parent_chain=render.build_parentchain(path, repo_path),
-        section=render.build_section(path)
-    ))
+    if request.args.get("partial") == "1": # Partial file contents load
+        section = render.build_section(path)
+        if section.type == "dir":
+            assert isinstance(section, render.DirSection)
+            section = section.find_readme_child()
+            if not section: abort(404)
+        assert isinstance(section, render.FileSection)
+        if not section.is_text(): abort(404)
+        response = Response(section.load_content())
+    else: # Full page load
+        response = Response(render_template(
+            "repos.html", 
+            repo_id=repo_id,
+            repo_name=repo.name,
+            parent_chain=render.build_parentchain(path, repo_path),
+            section=render.build_section(path)
+        ))
     # Handles repos views
     day = int(time.time() // 86400)
     rv_key = f"rv_{repo_id}_{day}"
     viewed = request.cookies.get(rv_key)
     if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-        if g.user: vhash = track.viewer_hash(day, user_id=g.user.user_id)
-        else: vhash = track.viewer_hash(day, ip=ip, ua=request.user_agent.string)
         client = track.detect_client(request.user_agent.string)
-        location = track.detect_location(ip)
-        added = db.add_repo_view(repo_id, vhash, client, location)
-        if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
+        if client != "bot": # Skips bot from db entry
+            if g.user: vhash = track.viewer_hash(day, user_id=g.user.user_id)
+            else: vhash = track.viewer_hash(day, ip=ip, ua=request.user_agent.string)
+            location = track.detect_location(ip)
+            added = db.add_repo_view(repo_id, vhash, client, location)
+            if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
         # Save cookie to prevent mutliple rechecking 
-        respone.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
-    return respone
+        response.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax")
+    return response
 
 @app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/raw/<string:repo_id>/<path:sub>")
@@ -136,28 +182,30 @@ def raw(repo_id: str, sub: str):
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
     except Exception: abort(404)
-    if path.is_dir():
+    if path.is_dir(): # Downloading repo archive
         if sub: return redirect(f"/repos/{repo_id}/{sub}", 303)
-        # Downloading repo archive
         with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
             zip_path = Path(tmp.name)
             try:
                 with git.RepoLock(repo_path):
-                    git.zip_dir(path, zip_path)
+                    etagv = git.zip_dir(path, zip_path)
             except git.RepoLockError:
                 abort(500, "Could not generate zip archive, try again later.")
-            return send_file(
+            response = send_file(
                 zip_path,
                 mimetype="application/zip",
                 download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
-    return send_file(path, mimetype="text/plain", as_attachment=False)
+            response.set_etag(etagv)
+            return response.make_conditional(request)
+    else: # Sending files
+        return send_file(path, as_attachment=False, conditional=True)
 
 @app.route("/repos/add", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_add():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -219,7 +267,7 @@ def login():
     expires = auth.get_session_expiriation(user.role)
     session_id = db.add_session(user.id, expires)
     response = redirect(auth.safe_redirect_url(next_url))
-    response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    response.set_cookie(USER_SESSION_COOKIE, session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_LOGIN_SUCCESS, user_id=user.id)
     return response
 
@@ -252,7 +300,7 @@ def register():
     expires = auth.get_session_expiriation('u')
     session_id = db.add_session(user_id, expires)
     response = redirect("/dashboard")
-    response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    response.set_cookie(USER_SESSION_COOKIE, session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_REGISTER, user_id=user_id)
     # Verification email
     token = db.add_token(user_id, 'e_ver')
@@ -268,44 +316,53 @@ def register():
     return response
 
 @app.route("/logout")
-@auth.login_required()
+@fh.login_required()
 def logout():
     db.delete_session(g.user.session_id)
     db.delete_user_expired_sessions(g.user.user_id)
     response = redirect("/login")
-    response.delete_cookie("session_id")
+    response.delete_cookie(USER_SESSION_COOKIE)
     lg.log(lg.Event.AUTH_LOGOUT, user_id=g.user.user_id)
     return response
 
 @app.route("/dashboard")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def dashboard():
     repos = db.list_user_repos(g.user.user_id)
     return render_template("dashboard.html", repos=repos)
 
 @app.route("/views")
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
+@fh.use_cache()
 def views():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
     else: page = int(page)
     uviews = db.list_user_repo_views(g.user.user_id, offset=(page*10))
-    cviews = db.count_user_repo_views(g.user.user_id)
-    return render_template(
-        "views.html",
-        page=page,
-        is_last=(len(uviews) < 10),
-        views=utils.views_to_readable(uviews),
-        cviews=cviews
-    )
+    if request.args.get("partial") == "1": # Partial table load
+        t_table_views = get_template_attribute("macros/table_views.html", "table_views")
+        response = Response(
+            t_table_views(utils.views_to_readable(uviews)), 
+            headers={"X-Last": "1" if len(uviews) < 10 else "0"}
+        )
+    else: # Full page load
+        cviews = db.count_user_repo_views(g.user.user_id)
+        response = Response(render_template(
+            "views.html",
+            page=page,
+            is_last=(len(uviews) < 10),
+            views=utils.views_to_readable(uviews),
+            cviews=cviews
+        ))
+    return response
 
 @app.route("/repos/details/<string:repo_id>")
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
@@ -335,9 +392,9 @@ def repos_details(repo_id: str):
     )
 
 @app.route("/repos/build/<string:repo_id>", methods=["POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
@@ -355,9 +412,9 @@ def build(repo_id: str):
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/repos/remove/<string:repo_id>", methods=["POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     user_id = db.get_repo_user_id(repo_id)
@@ -374,8 +431,8 @@ def repos_remove(repo_id: str):
     return redirect("/dashboard")
 
 @app.route("/user")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def user():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -393,8 +450,8 @@ def user():
     )
 
 @app.route("/user/remove", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def user_remove():
     if request.method == "GET":
         return render_template("user_remove.html", user_login=g.user.login)
@@ -414,9 +471,9 @@ def user_remove():
     return redirect("/login")
 
 @app.route("/admin")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin():
     repo_count = db.count_repos()
     user_count = db.count_users()
@@ -426,6 +483,7 @@ def admin():
     total_size = git.get_total_repos_size()
     builds = db.list_builds()
     cleanup_data = cworker.get_last_cleanup()
+    global admin_cleanup_running
     return render_template(
         "admin.html",
         repo_count=repo_count,
@@ -436,22 +494,36 @@ def admin():
         build_sum_archive_size=utils.size_to_str(sizes.archive_size),
         total_size=utils.size_to_str(total_size),
         latest_activity=utils.builds_activity_to_readable(builds),
-        cleanup_data=cleanup_data
+        cleanup_data=cleanup_data,
+        admin_cleanup_running=admin_cleanup_running
     )
 
-@app.route("/admin/cleanup", methods=["POST"])
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@app.route("/admin/cleanup", methods=["GET", "POST"])
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_cleanup():
+    global admin_cleanup_running
+    if request.method == "GET":
+        return {"running": admin_cleanup_running}
+    # POST
     lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
-    cworker.run_cleanup()
-    return redirect("/admin")
+    if admin_cleanup_running:
+        abort(403, "Request is already running.")
+    admin_cleanup_running = True
+    def run():
+        try:
+            cworker.run_cleanup()
+        finally:
+            global admin_cleanup_running
+            admin_cleanup_running = False
+    Thread(target=run, daemon=True).start()
+    return redirect("/admin#hCleanup")
 
 @app.route("/admin/repos")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_repos():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -467,23 +539,31 @@ def admin_repos():
     url = request.args.get('url', '')
     # ---
     repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key, hidden=hidden)
-    return render_template(
-        "admin_repos.html",
-        repos=utils.repos_activity_to_readable(repos),
-        is_last=(len(repos) < 10),
-        page=page,
-        repo=repo,
-        status=status,
-        user=user,
-        url=url,
-        key=key,
-        hidden=hidden
-    )
+    if request.args.get("partial") == "1": # Partial table load
+        t_table_repos = get_template_attribute("macros/table_repos.html", "table_repos")
+        response = Response(
+            t_table_repos(utils.repos_activity_to_readable(repos)), 
+            headers={"X-Last": "1" if len(repos) < 10 else "0"}
+        )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_repos.html",
+            repos=utils.repos_activity_to_readable(repos),
+            is_last=(len(repos) < 10),
+            page=page,
+            repo=repo,
+            status=status,
+            user=user,
+            url=url,
+            key=key,
+            hidden=hidden
+        ))
+    return response
 
 @app.route("/admin/builds")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_builds():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -495,21 +575,29 @@ def admin_builds():
     code = request.args.get('code')
     # ---
     builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id, code=code)
-    return render_template(
-        "admin_builds.html",
-        builds=utils.builds_activity_to_readable(builds),
-        is_last=(len(builds) < 10),
-        page=page,
-        status=status,
-        user=user,
-        repo=repo_id,
-        code=code
-    )
+    if request.args.get("partial") == "1": # Partial table load
+        t_table_builds = get_template_attribute("macros/table_builds.html", "table_builds")
+        response = Response(
+            t_table_builds(utils.builds_activity_to_readable(builds)), 
+            headers={"X-Last": "1" if len(builds) < 10 else "0"}
+        )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_builds.html",
+            builds=utils.builds_activity_to_readable(builds),
+            is_last=(len(builds) < 10),
+            page=page,
+            status=status,
+            user=user,
+            repo=repo_id,
+            code=code
+        ))
+    return response
 
 @app.route("/admin/users")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_users():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -534,23 +622,31 @@ def admin_users():
         role=role,
         inactive=inactive
     )
-    return render_template(
-        "admin_users.html",
-        users=utils.users_activity_to_readable(users),
-        is_last=(len(users) < 10),
-        page=page,
-        login=user_login,
-        email=email,
-        verified=verified,
-        banned=banned,
-        role=role,
-        inactive=inactive
-    )
+    if request.args.get("partial") == "1": # Partial table load
+        t_table_users = get_template_attribute("macros/table_users.html", "table_users")
+        response = Response(
+            t_table_users(utils.users_activity_to_readable(users)), 
+            headers={"X-Last": "1" if len(users) < 10 else "0"}
+        )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_users.html",
+            users=utils.users_activity_to_readable(users),
+            is_last=(len(users) < 10),
+            page=page,
+            login=user_login,
+            email=email,
+            verified=verified,
+            banned=banned,
+            role=role,
+            inactive=inactive
+        ))
+    return response
 
 @app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_users_id(user_id: int):
     user = db.get_user(user_id)
     if not user: abort(404)
@@ -675,8 +771,8 @@ def admin_users_id(user_id: int):
     return redirect(f'/admin/users/{user_id}')
 
 @app.route("/verify")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def verify():
     if g.user.login == "root": abort(400, "Cannot modify root user")
     email = db.get_user_email(g.user.user_id)
@@ -694,8 +790,8 @@ def verify():
     return render_template("verify.html", is_verified=True)
 
 @app.route("/verify/resend", methods=["POST"])
-@auth.not_banned_required()
-@auth.login_required()
+@fh.not_banned_required()
+@fh.login_required()
 def verify_resend():
     if g.user.is_verified: return redirect("/dashboard")
     email = db.get_user_email(g.user.user_id)
@@ -717,9 +813,9 @@ def verify_resend():
     return render_template("verify.html", email=email, blocked=True, is_verified=g.user.is_verified)
 
 @app.route("/password/change", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def password_change():
     if g.user.login == "root": abort(400, "Cannot modify root user")
     if request.method == "GET":
@@ -809,7 +905,7 @@ def password_reset():
     lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
     return redirect("/login")
 
-@auth.login_required()
+@fh.login_required()
 @app.route("/banned")
 def banned():
     ban = db.get_user_ban(g.user.user_id)

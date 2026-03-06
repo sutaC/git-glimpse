@@ -26,14 +26,22 @@ services:
         env_file:
             - .env
     root_passwd:
-        image: .
+        build: .
         profiles:
             - manual
         entrypoint: ["python", "scripts/root_passwd.py"]
         volumes:
             - data_volume:/app/data
-            - ./scripts:/app/scripts
+            - ./scripts:/app/scripts:ro
         env_file:
             - .env
+    build_static:
+        build: .
+        profiles:
+            - manual
+        entrypoint: ["python", "scripts/build_static.py"]
+        volumes:
+            - ./src/static:/app/src/static
+            - ./scripts:/app/scripts:ro
 volumes:
     data_volume:

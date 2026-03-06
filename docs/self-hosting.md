@@ -31,19 +31,29 @@ Development uses Docker with:
 
 **To run dev**:
 
-1. Build image:
+1. Create a virtual environment: (For IDE support)
+    ```
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    ```
+2. Install dependencies:
+    ```
+    pip install -r requirements-docs.txt
+    ```
+3. Build image:
     ```bash
     docker build -t git-glimpse .
     ```
-2. Start the app (dev mode):
+4. Start the app (dev mode):
     ```bash
     docker compose up
     ```
-3. Cleanup worker (manual):
+5. Cleanup worker (manual):
     ```bash
     docker compose --profile manual run --rm cleanup_worker
     ```
-4. Reset root password:
+6. Reset root password:
 
     ```bash
     ./scripts/run_root_passwd.sh --password '<password>'
@@ -57,13 +67,12 @@ This project uses `pydoc-markdown` to generate Markdown code documentation.
 
 1. Create a virtual environment:
     ```
-    python -m venv .venv
-    source .venv/bin/activate
+    python -m venv .venv-docs
+    source .venv-docs/bin/activate
     ```
 2. Install dependencies:
     ```
-    pip install -r requirements.txt
-    pip install pydoc-markdown
+    pip install -r requirements-docs.txt
     ```
 3. Generate code documentation:
     ```
@@ -84,28 +93,84 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
     ```bash
     docker build -t git-glimpse .
     ```
-2. Setup storage (one time, requires sudo privileges)
+2. Setup storage: (one time, requires sudo privileges)
 
     ```bash
     ./scripts/setup_storage.sh
     ```
 
-3. Setup cron jobs:
+3. Build static files:
+
+    ```bash
+    docker compose --profile manual run --rm build_static
+    ```
+
+4. Setup cron jobs:
     ```bash
     ./scripts/setup_cron.sh
     ```
     > Schedules the cleanup worker to run once per day via cron.
-4. Start the app:
+5. Start the app:
     ```bash
     docker compose -f docker-compose.yml -f docker-compose.prod.yml up
     ```
-5. Reset root password:
+6. Reset root password:
 
     ```bash
     PROD=1 ./scripts/run_root_passwd.sh --password '<password>'
     ```
 
     > After initializing the database, this is the **only** way to change the root password.
+
+## Configuring project with NGINX
+
+Example NGINX configuration for this project:
+
+```
+http {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
+}
+
+server {
+    server_name _;
+    listen 80;
+    # In production you should use `listen 443 ssl;` for HTTPS connections.
+
+    location / {
+        limit_req zone=req_limit_per_ip burst=10 nodelay;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+    }
+
+    location /static/ {
+        alias /src/static/; # Path to project src static
+        access_log off;
+        gzip_static on;
+        expires 1h;
+        try_files $uri =404;
+    }
+
+    location /static/dist/ {
+        alias /src/static/dist/; # Path to project src static dist
+        access_log off;
+        expires 1y;
+        etag on;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location = /robots.txt {
+        alias /src/static/robots.txt;
+        access_log off;
+        expires 1d;
+    }
+}
+```
 
 ## Removing production systems
 

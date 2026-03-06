@@ -2,14 +2,14 @@
 <section>
     <div class="section_header">
         <h2>{{section.name}}</h2>
-        <a href="/raw/{{section.url}}" class="buttonlike primary">Raw</a>
+        <a href="/raw{{section.url}}" class="buttonlike primary">Raw</a>
     </div>
     <div class="section_content">
         <!-- prettier-ignore -->
         {% if section.is_text() %} {# Is text file #}
-        {{section.load_content() | safe}}
+        <div id="lazy-file-content"></div>
         {% elif section.file_type == "image" %} {# Is image #}
-        <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" />
+        <img src="/raw{{section.url}}" alt="{{section.name}}" class="file_image" loading="lazy" />
         {% else %} {# Is not a text file #}
         <small class="empty_msg">Cannot display this file...</small>
         {% endif %}

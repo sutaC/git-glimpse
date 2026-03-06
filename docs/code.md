@@ -12,6 +12,28 @@ Entry point for wsgi server.
 
 # app
 
+<a id="app.static_file"></a>
+
+#### static\_file
+
+```python
+def static_file(name: str) -> str
+```
+
+Gives URL for static file.
+
+In `debug` mode it will serve regular files and in `prod` mode it will served build minified version for caching.
+If file is not included in `static/dist/` the function will return regular path.
+
+**Arguments**:
+
+- `name` - Path to resource in static directory.
+  
+
+**Returns**:
+
+  URL for resource.
+
 <a id="cleanup_worker"></a>
 
 # cleanup\_worker
@@ -231,7 +253,7 @@ Gives absolute path to repository resource.
 #### zip\_dir
 
 ```python
-def zip_dir(src_path: Path, dest_path: Path) -> None
+def zip_dir(src_path: Path, dest_path: Path) -> str
 ```
 
 Packs directory into zip archive.
@@ -242,6 +264,11 @@ Packs directory into zip archive.
 
 - `src_path` - Source directory to pack.
 - `dest_path` - Destination path where zip archive is written to.
+  
+
+**Returns**:
+
+  Zip hash.
 
 <a id="lib.git.get_total_repos_size"></a>
 
@@ -1671,50 +1698,6 @@ In `dev` enviroment function lifespan will be:
 
   Session expiriation timestamp.
 
-<a id="lib.auth.login_required"></a>
-
-#### login\_required
-
-```python
-def login_required()
-```
-
-Allows only logged-in users.
-
-<a id="lib.auth.verification_required"></a>
-
-#### verification\_required
-
-```python
-def verification_required()
-```
-
-Allows only verified users.
-
-<a id="lib.auth.role_required"></a>
-
-#### role\_required
-
-```python
-def role_required(role: str)
-```
-
-Allows only users with given role.
-
-**Arguments**:
-
-- `role` - Allowed role code.
-
-<a id="lib.auth.not_banned_required"></a>
-
-#### not\_banned\_required
-
-```python
-def not_banned_required()
-```
-
-Allows only not banned users.
-
 <a id="lib.render"></a>
 
 # lib.render
@@ -2213,6 +2196,66 @@ Parses Views list to string formatted tuple for template display.
 # lib.database\_rows
 
 Module provides data types fetched by `lib.database` module.
+
+<a id="lib.flask_helpers"></a>
+
+# lib.flask\_helpers
+
+Module provides Flask helper functoins for managing Flask endpoints.
+
+<a id="lib.flask_helpers.login_required"></a>
+
+#### login\_required
+
+```python
+def login_required()
+```
+
+Allows only logged-in users.
+
+<a id="lib.flask_helpers.verification_required"></a>
+
+#### verification\_required
+
+```python
+def verification_required()
+```
+
+Allows only verified users.
+
+<a id="lib.flask_helpers.role_required"></a>
+
+#### role\_required
+
+```python
+def role_required(role: str)
+```
+
+Allows only users with given role.
+
+**Arguments**:
+
+- `role` - Allowed role code.
+
+<a id="lib.flask_helpers.not_banned_required"></a>
+
+#### not\_banned\_required
+
+```python
+def not_banned_required()
+```
+
+Allows only not banned users.
+
+<a id="lib.flask_helpers.use_cache"></a>
+
+#### use\_cache
+
+```python
+def use_cache()
+```
+
+Adds ETag caching.
 
 <a id="lib.logger"></a>
 

@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
+{% from "macros/csrf_field.html" import csrf_field %}
+<!-- prettier-ignore -->
 {% block title %}Register | Git Glimpse{% endblock %}
 {% block nav %}
-<a href="/login">login</a>
+<a href="/login">Login</a>
 {% endblock %}
 
 <!-- prettier-ignore -->
 {% block content %}
 <h1>Register</h1>
 <form action="/register" method="post" class="standalone">
+    {{ csrf_field() }}
     <p class="error_msg">{{error_msg}}</p>
     <div class="field">
         <label for="login">Login:</label>
@@ -68,7 +71,7 @@
 
     <button type="submit">Register</button>
 </form>
-<p>
+<p class="centered">
     Have an account?
     <a href="/login">Login</a>
     !

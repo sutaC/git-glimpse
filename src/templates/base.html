@@ -12,29 +12,34 @@
             content="share, github, private repository, public url, ssh key, deploy key, public link"
         />
         <title>{% block title %}Git Glimpse{% endblock %}</title>
-        <link
-            rel="shortcut icon"
-            href="{{url_for('static', filename='images/favicon.png')}}"
-            type="image/png"
-        />
+        <link rel="shortcut icon" href="{{static_file('images/favicon.png')}}" type="image/png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&family=Noto+Sans+Yi&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="{{url_for('static', filename='styles/global.css')}}" />
-        <script src="{{url_for('static', filename='js/header_handler.js')}}" defer></script>
+        <link rel="stylesheet" href="{{static_file('styles/global.css')}}" />
+        <script src="{{static_file('js/header_handler.js')}}" defer></script>
         {% block head %}{% endblock %}
     </head>
     <body>
         <header>
             <a href="/" class="logo">
-                <img src="{{url_for('static', filename='images/logo.svg')}}" alt="Git Glimpse" />
+                <img
+                    src="{{static_file('images/logo.svg')}}"
+                    alt="Git Glimpse"
+                    fetchpriority="high"
+                />
                 Git Glimpse
             </a>
             <button class="mobile" id="menu_toggle">
-                <img src="{{url_for('static', filename='images/menu_icon.svg')}}" alt="menu" />
+                <img
+                    src="{{static_file('images/menu_icon.svg')}}"
+                    height="24"
+                    width="24"
+                    alt="menu"
+                />
             </button>
             <nav>
                 <a href="/">Home</a>
@@ -61,7 +66,11 @@
                 |
                 <a href="/rules" target="_blank">Terms & Rules</a>
                 |
-                <a href="https://github.com/sutaC/git-glimpse/tree/main/docs" target="_blank">
+                <a
+                    href="https://github.com/sutaC/git-glimpse/blob/main/docs/index.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     Documentation
                 </a>
                 |

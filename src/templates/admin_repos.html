@@ -6,7 +6,7 @@
 {% block title %}Repos | Admin | Git Glimpse{% endblock %}
 <!-- prettier-ignore -->
 {% block head %} 
-<script src="{{url_for('static', filename='js/activity_display.js')}}" defer></script>
+<script src="{{static_file('js/activity_display.js')}}" defer></script>
 {% endblock %}
 
 <!-- prettier-ignore -->
@@ -26,7 +26,7 @@
         <h2>Filters</h2>
     </div>
     <div class="section_content">
-        <form action="/admin/repos" method="get">
+        <form action="/admin/repos" method="get" id="pager-filters">
             <div class="field">
                 <label for="status">Status:</label>
                 <select name="status" id="status">
@@ -79,6 +79,6 @@
         <h2 id="hDisplay">Builds</h2>
         {{ pager(page, is_last) }}
     </div>
-    <div class="section_content">{{ table_repos(repos) }}</div>
+    <div class="section_content" id="pager-output">{{ table_repos(repos) }}</div>
 </section>
 {% endblock %}

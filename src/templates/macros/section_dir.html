@@ -16,8 +16,11 @@
             <li>
                 <a href="/repos{{child.url}}" class="list_item">
                     <img
-                        src="{{url_for('static', filename=('images/' + child.icon))}}"
+                        src="{{static_file(('images/' + child.icon))}}"
                         alt="{{child.type}}"
+                        height="24"
+                        width="24"
+                        loading="lazy"
                     />
                     <span>{{child.name}}</span>
                 </a>
