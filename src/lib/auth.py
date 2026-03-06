@@ -1,8 +1,6 @@
 """Module provides authentication functions and authorization decotators for Flask endpoints."""
-from urllib.parse import urlparse, quote, quote_from_bytes
-from flask import abort, redirect, g, request
+from urllib.parse import urlparse
 from typing import NamedTuple
-from functools import wraps
 import bcrypt
 import time
 import os
@@ -89,60 +87,3 @@ def get_session_expiriation(role: str) -> int:
     """
     if _ENV != "prod": return int(time.time()) + 86_400 # now + 24h (development)
     return int(time.time()) + (1200 if role == 'a' else 3600) # now + 1h (user) + 20min (admin) 
-
-# --- decotators ---
-def login_required():
-    """Allows only logged-in users."""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if g.user is None:
-                if request.accept_mimetypes.accept_html:
-                    return redirect(f"/login?next={quote(request.path.rstrip("/"))}{quote_from_bytes("?".encode()+request.query_string) if request.query_string else ""}")
-                abort(401)
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def verification_required():
-    """Allows only verified users."""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if g.user is None or not g.user.is_verified:
-                if request.accept_mimetypes.accept_html:
-                    return redirect("/verify")
-                abort(401)
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def role_required(role: str):
-    """Allows only users with given role.
-    
-    Args:
-        role: Allowed role code.
-    """
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if g.user is None:
-                abort(401)
-            if g.user.role != role:
-                abort(403)
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def not_banned_required():
-    """Allows only not banned users."""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if g.user is None:
-                abort(401)
-            if g.user.is_banned:
-                return redirect("/banned")
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator

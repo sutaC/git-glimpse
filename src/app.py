@@ -1,5 +1,5 @@
 from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g, url_for
-from src.lib import render, track, emails, utils, auth, git, logger as lg
+from src.lib import render, track, emails, utils, auth, git, flask_helpers as fh, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH, STATIC_MANIFEST_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
@@ -101,10 +101,12 @@ def handle_errors(e):
 
 # --- route handlers ---
 @app.route("/")
+@fh.use_cache()
 def root():
     return render_template("index.html")
 
 @app.route("/rules")
+@fh.use_cache()
 def rules():
     return render_template("rules.html")
 
@@ -114,6 +116,7 @@ def repos_demo():
 
 @app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/repos/<string:repo_id>/<path:sub>")
+@fh.use_cache()
 def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_select(repo_id)
@@ -157,11 +160,8 @@ def repos(repo_id: str, sub: str):
             if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
         # Save cookie to prevent mutliple rechecking 
-        response.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
-    # Caching
-    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
-    response.add_etag()
-    return response.make_conditional(request)
+        response.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax")
+    return response
 
 @app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/raw/<string:repo_id>/<path:sub>")
@@ -175,28 +175,30 @@ def raw(repo_id: str, sub: str):
     subpath = Path(sub)
     try: path = git.get_repo_path(repo_path, subpath)
     except Exception: abort(404)
-    if path.is_dir():
+    if path.is_dir(): # Downloading repo archive
         if sub: return redirect(f"/repos/{repo_id}/{sub}", 303)
-        # Downloading repo archive
         with NamedTemporaryFile(suffix=".zip", delete=True) as tmp:
             zip_path = Path(tmp.name)
             try:
                 with git.RepoLock(repo_path):
-                    git.zip_dir(path, zip_path)
+                    etagv = git.zip_dir(path, zip_path)
             except git.RepoLockError:
                 abort(500, "Could not generate zip archive, try again later.")
-            return send_file(
+            response = send_file(
                 zip_path,
                 mimetype="application/zip",
                 download_name=f"{repo.name}.zip",
                 as_attachment=True,
             )
-    return send_file(path, mimetype="text/plain", as_attachment=False)
+            response.set_etag(etagv)
+            return response.make_conditional(request)
+    else: # Sending files
+        return send_file(path, as_attachment=False, conditional=True)
 
 @app.route("/repos/add", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_add():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -307,7 +309,7 @@ def register():
     return response
 
 @app.route("/logout")
-@auth.login_required()
+@fh.login_required()
 def logout():
     db.delete_session(g.user.session_id)
     db.delete_user_expired_sessions(g.user.user_id)
@@ -317,16 +319,17 @@ def logout():
     return response
 
 @app.route("/dashboard")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def dashboard():
     repos = db.list_user_repos(g.user.user_id)
     return render_template("dashboard.html", repos=repos)
 
 @app.route("/views")
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
+@fh.use_cache()
 def views():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -347,15 +350,12 @@ def views():
             views=utils.views_to_readable(uviews),
             cviews=cviews
         ))
-    # Caching
-    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
-    response.add_etag()
-    return response.make_conditional(request)
+    return response
 
 @app.route("/repos/details/<string:repo_id>")
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_details(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo(repo_id)
@@ -385,9 +385,9 @@ def repos_details(repo_id: str):
     )
 
 @app.route("/repos/build/<string:repo_id>", methods=["POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
@@ -405,9 +405,9 @@ def build(repo_id: str):
     return redirect(f"/repos/details/{repo_id}")
 
 @app.route("/repos/remove/<string:repo_id>", methods=["POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def repos_remove(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     user_id = db.get_repo_user_id(repo_id)
@@ -424,8 +424,8 @@ def repos_remove(repo_id: str):
     return redirect("/dashboard")
 
 @app.route("/user")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def user():
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
@@ -443,8 +443,8 @@ def user():
     )
 
 @app.route("/user/remove", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def user_remove():
     if request.method == "GET":
         return render_template("user_remove.html", user_login=g.user.login)
@@ -464,9 +464,10 @@ def user_remove():
     return redirect("/login")
 
 @app.route("/admin")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
+@fh.use_cache()
 def admin():
     repo_count = db.count_repos()
     user_count = db.count_users()
@@ -490,18 +491,19 @@ def admin():
     )
 
 @app.route("/admin/cleanup", methods=["POST"])
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_cleanup():
     lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
     cworker.run_cleanup()
     return redirect("/admin")
 
 @app.route("/admin/repos")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
+@fh.use_cache()
 def admin_repos():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -536,15 +538,13 @@ def admin_repos():
             key=key,
             hidden=hidden
         ))
-    # Caching
-    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
-    response.add_etag()
-    return response.make_conditional(request)
+    return response
 
 @app.route("/admin/builds")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
+@fh.use_cache()
 def admin_builds():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -573,15 +573,13 @@ def admin_builds():
             repo=repo_id,
             code=code
         ))
-    # Caching
-    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
-    response.add_etag()
-    return response.make_conditional(request)
+    return response
 
 @app.route("/admin/users")
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
+@fh.use_cache()
 def admin_users():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -625,15 +623,12 @@ def admin_users():
             role=role,
             inactive=inactive
         ))
-    # Caching
-    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
-    response.add_etag()
-    return response.make_conditional(request)
+    return response
 
 @app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
-@auth.login_required()
-@auth.verification_required()
-@auth.role_required('a')
+@fh.login_required()
+@fh.verification_required()
+@fh.role_required('a')
 def admin_users_id(user_id: int):
     user = db.get_user(user_id)
     if not user: abort(404)
@@ -758,8 +753,8 @@ def admin_users_id(user_id: int):
     return redirect(f'/admin/users/{user_id}')
 
 @app.route("/verify")
-@auth.login_required()
-@auth.not_banned_required()
+@fh.login_required()
+@fh.not_banned_required()
 def verify():
     if g.user.login == "root": abort(400, "Cannot modify root user")
     email = db.get_user_email(g.user.user_id)
@@ -777,8 +772,8 @@ def verify():
     return render_template("verify.html", is_verified=True)
 
 @app.route("/verify/resend", methods=["POST"])
-@auth.not_banned_required()
-@auth.login_required()
+@fh.not_banned_required()
+@fh.login_required()
 def verify_resend():
     if g.user.is_verified: return redirect("/dashboard")
     email = db.get_user_email(g.user.user_id)
@@ -800,9 +795,9 @@ def verify_resend():
     return render_template("verify.html", email=email, blocked=True, is_verified=g.user.is_verified)
 
 @app.route("/password/change", methods=["GET", "POST"])
-@auth.login_required()
-@auth.not_banned_required()
-@auth.verification_required()
+@fh.login_required()
+@fh.not_banned_required()
+@fh.verification_required()
 def password_change():
     if g.user.login == "root": abort(400, "Cannot modify root user")
     if request.method == "GET":
@@ -892,7 +887,7 @@ def password_reset():
     lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
     return redirect("/login")
 
-@auth.login_required()
+@fh.login_required()
 @app.route("/banned")
 def banned():
     ban = db.get_user_ban(g.user.user_id)
