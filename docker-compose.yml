@@ -41,7 +41,7 @@ services:
             - manual
         entrypoint: ["python", "scripts/build_static.py"]
         volumes:
-            - ./src/static/dist:/app/src/static/dist
+            - ./src/static:/app/src/static
             - ./scripts:/app/scripts:ro
 volumes:
     data_volume:

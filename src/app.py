@@ -5,6 +5,7 @@ from tempfile import NamedTemporaryFile
 from src.lib.database import Database
 from flask_seasurf import SeaSurf
 from dotenv import load_dotenv
+from threading import Thread
 from pathlib import Path
 import src.cleanup_worker as cworker
 import json
@@ -28,6 +29,8 @@ csrf = SeaSurf(app)
 db = Database(DATABASE_PATH)
 with app.app_context():
     db.init_db()
+
+admin_cleanup_running: bool = False
 
 # --- static file managment ---
 static_manifest: dict[str, str] = {} 
@@ -480,6 +483,7 @@ def admin():
     total_size = git.get_total_repos_size()
     builds = db.list_builds()
     cleanup_data = cworker.get_last_cleanup()
+    global admin_cleanup_running
     return render_template(
         "admin.html",
         repo_count=repo_count,
@@ -490,17 +494,31 @@ def admin():
         build_sum_archive_size=utils.size_to_str(sizes.archive_size),
         total_size=utils.size_to_str(total_size),
         latest_activity=utils.builds_activity_to_readable(builds),
-        cleanup_data=cleanup_data
+        cleanup_data=cleanup_data,
+        admin_cleanup_running=admin_cleanup_running
     )
 
-@app.route("/admin/cleanup", methods=["POST"])
+@app.route("/admin/cleanup", methods=["GET", "POST"])
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
 def admin_cleanup():
+    global admin_cleanup_running
+    if request.method == "GET":
+        return {"running": admin_cleanup_running}
+    # POST
     lg.log(lg.Event.ADMIN_FORCED_CLEANUP, user_id=g.user.user_id)
-    cworker.run_cleanup()
-    return redirect("/admin")
+    if admin_cleanup_running:
+        abort(403, "Request is already running.")
+    admin_cleanup_running = True
+    def run():
+        try:
+            cworker.run_cleanup()
+        finally:
+            global admin_cleanup_running
+            admin_cleanup_running = False
+    Thread(target=run, daemon=True).start()
+    return redirect("/admin#hCleanup")
 
 @app.route("/admin/repos")
 @fh.login_required()
