@@ -31,19 +31,29 @@ Development uses Docker with:
 
 **To run dev**:
 
-1. Build image:
+1. Create a virtual environment: (For IDE support)
+    ```
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    ```
+2. Install dependencies:
+    ```
+    pip install -r requirements-docs.txt
+    ```
+3. Build image:
     ```bash
     docker build -t git-glimpse .
     ```
-2. Start the app (dev mode):
+4. Start the app (dev mode):
     ```bash
     docker compose up
     ```
-3. Cleanup worker (manual):
+5. Cleanup worker (manual):
     ```bash
     docker compose --profile manual run --rm cleanup_worker
     ```
-4. Reset root password:
+6. Reset root password:
 
     ```bash
     ./scripts/run_root_passwd.sh --password '<password>'
@@ -57,13 +67,12 @@ This project uses `pydoc-markdown` to generate Markdown code documentation.
 
 1. Create a virtual environment:
     ```
-    python -m venv .venv
-    source .venv/bin/activate
+    python -m venv .venv-docs
+    source .venv-docs/bin/activate
     ```
 2. Install dependencies:
     ```
-    pip install -r requirements.txt
-    pip install pydoc-markdown
+    pip install -r requirements-docs.txt
     ```
 3. Generate code documentation:
     ```
