@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
+{% from "macros/csrf_field.html" import csrf_field %}
+<!-- prettier-ignore -->
 {% block title %}Verify | Git Glimpse{% endblock %}
 
 <!-- prettier-ignore -->
@@ -17,6 +19,7 @@
         {% else %}
         <p class="centered">Verify your account, check your email: <span class="tag">{{email}}</span></p>
         <form action="/verify/resend" method="post">
+            {{ csrf_field() }}
             <p>Resend verification email:</p>
             <button type="submit" {{"disabled" if blocked else ""}}>Resend</button>
             {% if blocked %}

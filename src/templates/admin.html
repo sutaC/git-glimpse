@@ -101,6 +101,7 @@
         <small class="empty_msg">No cleanup data was found</small>
         {% endif %}
         <form action="/admin/cleanup" method="post">
+            {{ csrf_field() }}
             <button type="submit">Force cleanup</button>
         </form>
     </div>

@@ -3,6 +3,7 @@ from src.lib import render, track, emails, utils, auth, git, flask_helpers as fh
 from src.globals import REPO_PATH, DATABASE_PATH, STATIC_MANIFEST_PATH
 from tempfile import NamedTemporaryFile
 from src.lib.database import Database
+from flask_seasurf import SeaSurf
 from dotenv import load_dotenv
 from pathlib import Path
 import src.cleanup_worker as cworker
@@ -12,6 +13,7 @@ import os
 
 load_dotenv()
 
+USER_SESSION_COOKIE = "user_token"
 ERROR_PAGE_TITLES = {
     403: "Forbidden",
     404: "Page Not Found",
@@ -19,7 +21,9 @@ ERROR_PAGE_TITLES = {
 }
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+app.secret_key = os.environ.get("SECRET_KEY")
+
+csrf = SeaSurf(app)
 
 db = Database(DATABASE_PATH)
 with app.app_context():
@@ -62,7 +66,7 @@ def db_close(error=None):
 def load_user():
     g.clear_session_cookie = False
     g.user = None
-    session_id = request.cookies.get("session_id")
+    session_id = request.cookies.get(USER_SESSION_COOKIE)
     if not session_id: return
     session = db.get_session(session_id)
     if not session: return
@@ -79,8 +83,8 @@ def load_user():
 
 @app.after_request
 def clear_session_cookie(response: Response):
-    if g.clear_session_cookie:
-        response.delete_cookie("session_id")
+    if hasattr(g, "clear_session_cookie") and g.clear_session_cookie:
+        response.delete_cookie(USER_SESSION_COOKIE)
     return response
 
 @app.errorhandler(Exception)
@@ -260,7 +264,7 @@ def login():
     expires = auth.get_session_expiriation(user.role)
     session_id = db.add_session(user.id, expires)
     response = redirect(auth.safe_redirect_url(next_url))
-    response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    response.set_cookie(USER_SESSION_COOKIE, session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_LOGIN_SUCCESS, user_id=user.id)
     return response
 
@@ -293,7 +297,7 @@ def register():
     expires = auth.get_session_expiriation('u')
     session_id = db.add_session(user_id, expires)
     response = redirect("/dashboard")
-    response.set_cookie("session_id", session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
+    response.set_cookie(USER_SESSION_COOKIE, session_id, expires=expires, path='/', samesite='strict', httponly=True, secure=True)
     lg.log(lg.Event.AUTH_REGISTER, user_id=user_id)
     # Verification email
     token = db.add_token(user_id, 'e_ver')
@@ -314,7 +318,7 @@ def logout():
     db.delete_session(g.user.session_id)
     db.delete_user_expired_sessions(g.user.user_id)
     response = redirect("/login")
-    response.delete_cookie("session_id")
+    response.delete_cookie(USER_SESSION_COOKIE)
     lg.log(lg.Event.AUTH_LOGOUT, user_id=g.user.user_id)
     return response
 
@@ -467,7 +471,6 @@ def user_remove():
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
-@fh.use_cache()
 def admin():
     repo_count = db.count_repos()
     user_count = db.count_users()
@@ -503,7 +506,6 @@ def admin_cleanup():
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
-@fh.use_cache()
 def admin_repos():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -544,7 +546,6 @@ def admin_repos():
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
-@fh.use_cache()
 def admin_builds():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0
@@ -579,7 +580,6 @@ def admin_builds():
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
-@fh.use_cache()
 def admin_users():
     page = request.args.get('page', '0')
     if not page.isnumeric() or int(page) < 0: page = 0

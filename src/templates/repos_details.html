@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 <!-- prettier-ignore -->
+{% from "macros/csrf_field.html" import csrf_field %}
+<!-- prettier-ignore -->
 {% block title %}{{repo_name}} | Details | Git Glimpse{% endblock %}
 {% block head %}
     <script src="{{static_file('js/repos_details.js')}}" defer></script>
@@ -52,6 +54,7 @@
         <a href="/repos/{{repo_id|urlencode}}/" class="buttonlike primary">View</a>
         {% endif %}
         <form action="/repos/build/{{repo_id|urlencode}}#builds" method="post">
+            {{ csrf_field() }}
             <button 
                 type="submit" 
                 {{"disabled" if build_status in ['pending', 'running'] or build_count>=build_limit else ""}}
@@ -59,6 +62,7 @@
         qouta: {{build_count}}/{{build_limit}})</small>
         </form>
         <form action="/repos/remove/{{repo_id|urlencode}}" method="post">
+            {{ csrf_field() }}
             <button type="submit" >Remove</button>
         </form>
     </div>
