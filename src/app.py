@@ -49,14 +49,11 @@ def static_file(name: str) -> str:
     if not hashed: return url_for("static", filename=name)
     return url_for("static", filename=f"dist/{hashed}")
 
-# --- request handlers ---
-@app.context_processor
-def inject_contact_email():
-    return dict(
-        contact_email=os.getenv("CONTACT_EMAIL", "contact@example.com"), 
-        static_file=static_file
-    )
+#  --- jinja globals ---
+app.jinja_env.globals["contact_email"] = os.getenv("CONTACT_EMAIL", "contact@example.com")
+app.jinja_env.globals["static_file"] = static_file
 
+# --- request handlers ---
 @app.teardown_appcontext
 def db_close(error=None):
     db._close()
@@ -128,7 +125,7 @@ def repos(repo_id: str, sub: str):
     try: path = git.get_repo_path(repo_path, subpath)
     except LookupError: abort(404)
     # Create response
-    if request.headers.get("X-Partial"): # Partial file contents load
+    if request.args.get("partial") == "1": # Partial file contents load
         section = render.build_section(path)
         if section.type == "dir":
             assert isinstance(section, render.DirSection)
@@ -136,16 +133,15 @@ def repos(repo_id: str, sub: str):
             if not section: abort(404)
         assert isinstance(section, render.FileSection)
         if not section.is_text(): abort(404)
-        # Partial load skipps views handing
-        return Response(section.load_content(), headers={"Vary": "X-Partial"})
-    # Full page load
-    respone =  Response(render_template(
-        "repos.html", 
-        repo_id=repo_id,
-        repo_name=repo.name,
-        parent_chain=render.build_parentchain(path, repo_path),
-        section=render.build_section(path)
-    ))
+        response = Response(section.load_content())
+    else: # Full page load
+        response = Response(render_template(
+            "repos.html", 
+            repo_id=repo_id,
+            repo_name=repo.name,
+            parent_chain=render.build_parentchain(path, repo_path),
+            section=render.build_section(path)
+        ))
     # Handles repos views
     day = int(time.time() // 86400)
     rv_key = f"rv_{repo_id}_{day}"
@@ -161,8 +157,11 @@ def repos(repo_id: str, sub: str):
             if added: lg.log(lg.Event.REPO_VIEW_ADDED, repo_id=repo_id)
         max_age = 86400 - int(time.time()) % 86400 # (until the end of day)
         # Save cookie to prevent mutliple rechecking 
-        respone.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
-    return respone
+        response.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax") 
+    # Caching
+    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
+    response.add_etag()
+    return response.make_conditional(request)
 
 @app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
 @app.route("/raw/<string:repo_id>/<path:sub>")
@@ -333,20 +332,25 @@ def views():
     if not page.isnumeric() or int(page) < 0: page = 0
     else: page = int(page)
     uviews = db.list_user_repo_views(g.user.user_id, offset=(page*10))
-    if request.headers.get("X-Partial"): # Partial table load
+    if request.args.get("partial") == "1": # Partial table load
         t_table_views = get_template_attribute("macros/table_views.html", "table_views")
-        return Response(
+        response = Response(
             t_table_views(utils.views_to_readable(uviews)), 
-            headers={"Vary": "X-Partial", "X-Last": "1" if len(uviews) < 10 else "0"}
+            headers={"X-Last": "1" if len(uviews) < 10 else "0"}
         )
-    cviews = db.count_user_repo_views(g.user.user_id)
-    return render_template(
-        "views.html",
-        page=page,
-        is_last=(len(uviews) < 10),
-        views=utils.views_to_readable(uviews),
-        cviews=cviews
-    )
+    else: # Full page load
+        cviews = db.count_user_repo_views(g.user.user_id)
+        response = Response(render_template(
+            "views.html",
+            page=page,
+            is_last=(len(uviews) < 10),
+            views=utils.views_to_readable(uviews),
+            cviews=cviews
+        ))
+    # Caching
+    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
+    response.add_etag()
+    return response.make_conditional(request)
 
 @app.route("/repos/details/<string:repo_id>")
 @auth.login_required()
@@ -513,24 +517,29 @@ def admin_repos():
     url = request.args.get('url', '')
     # ---
     repos = db.list_repos(offset=(page*10), status=status, user=user, repo=repo, url=url, key=key, hidden=hidden)
-    if request.headers.get("X-Partial"): # Partial table load
+    if request.args.get("partial") == "1": # Partial table load
         t_table_repos = get_template_attribute("macros/table_repos.html", "table_repos")
-        return Response(
+        response = Response(
             t_table_repos(utils.repos_activity_to_readable(repos)), 
-            headers={"Vary": "X-Partial", "X-Last": "1" if len(repos) < 10 else "0"}
+            headers={"X-Last": "1" if len(repos) < 10 else "0"}
         )
-    return render_template(
-        "admin_repos.html",
-        repos=utils.repos_activity_to_readable(repos),
-        is_last=(len(repos) < 10),
-        page=page,
-        repo=repo,
-        status=status,
-        user=user,
-        url=url,
-        key=key,
-        hidden=hidden
-    )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_repos.html",
+            repos=utils.repos_activity_to_readable(repos),
+            is_last=(len(repos) < 10),
+            page=page,
+            repo=repo,
+            status=status,
+            user=user,
+            url=url,
+            key=key,
+            hidden=hidden
+        ))
+    # Caching
+    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
+    response.add_etag()
+    return response.make_conditional(request)
 
 @app.route("/admin/builds")
 @auth.login_required()
@@ -547,22 +556,27 @@ def admin_builds():
     code = request.args.get('code')
     # ---
     builds = db.list_builds(offset=(page*10), status=status, user=user, repo_id=repo_id, code=code)
-    if request.headers.get("X-Partial"): # Partial table load
+    if request.args.get("partial") == "1": # Partial table load
         t_table_builds = get_template_attribute("macros/table_builds.html", "table_builds")
-        return Response(
+        response = Response(
             t_table_builds(utils.builds_activity_to_readable(builds)), 
-            headers={"Vary": "X-Partial", "X-Last": "1" if len(builds) < 10 else "0"}
+            headers={"X-Last": "1" if len(builds) < 10 else "0"}
         )
-    return render_template(
-        "admin_builds.html",
-        builds=utils.builds_activity_to_readable(builds),
-        is_last=(len(builds) < 10),
-        page=page,
-        status=status,
-        user=user,
-        repo=repo_id,
-        code=code
-    )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_builds.html",
+            builds=utils.builds_activity_to_readable(builds),
+            is_last=(len(builds) < 10),
+            page=page,
+            status=status,
+            user=user,
+            repo=repo_id,
+            code=code
+        ))
+    # Caching
+    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
+    response.add_etag()
+    return response.make_conditional(request)
 
 @app.route("/admin/users")
 @auth.login_required()
@@ -592,24 +606,29 @@ def admin_users():
         role=role,
         inactive=inactive
     )
-    if request.headers.get("X-Partial"): # Partial table load
+    if request.args.get("partial") == "1": # Partial table load
         t_table_users = get_template_attribute("macros/table_users.html", "table_users")
-        return Response(
+        response = Response(
             t_table_users(utils.users_activity_to_readable(users)), 
-            headers={"Vary": "X-Partial", "X-Last": "1" if len(users) < 10 else "0"}
+            headers={"X-Last": "1" if len(users) < 10 else "0"}
         )
-    return render_template(
-        "admin_users.html",
-        users=utils.users_activity_to_readable(users),
-        is_last=(len(users) < 10),
-        page=page,
-        login=user_login,
-        email=email,
-        verified=verified,
-        banned=banned,
-        role=role,
-        inactive=inactive
-    )
+    else: # Full page load
+        response = Response(render_template(
+            "admin_users.html",
+            users=utils.users_activity_to_readable(users),
+            is_last=(len(users) < 10),
+            page=page,
+            login=user_login,
+            email=email,
+            verified=verified,
+            banned=banned,
+            role=role,
+            inactive=inactive
+        ))
+    # Caching
+    response.headers.add("Cache-Control", "private, max-age=0, must-revalidate")
+    response.add_etag()
+    return response.make_conditional(request)
 
 @app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
 @auth.login_required()

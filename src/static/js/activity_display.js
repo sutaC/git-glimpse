@@ -4,9 +4,16 @@ const elt_pager_next = document.getElementById("pager-next");
 const elt_pager_num = document.getElementById("pager-num");
 const elt_filters = document.getElementById("pager-filters");
 
+/**
+ * Performs partial swap using given URL.
+ * @param {URL} url Fetch URL.
+ * @returns {Promise<void>}
+ */
 const perform_swap = async (url) => {
     if (!elt_pout) return (location = url); // Defaults to full redirect when #pager-output is missing
-    const res = await fetch(url, { method: "GET", headers: { "X-Partial": "1" } });
+    url.searchParams.set("partial", "1");
+    const res = await fetch(url);
+    url.searchParams.delete("partial"); // Removes partial so it does not stay in history
     if (!res.ok) return (location = url); // Defaults to full redirect on fail
     elt_pout.innerHTML = await res.text();
     const page = Number.parseInt(url.searchParams.get("page", "0")) || 0;
@@ -37,8 +44,13 @@ elt_filters?.addEventListener("reset", async (e) => {
 });
 
 // Pager
+/**
+ * Generates `page_change_handler` with given page altering function.
+ * @param {(p: number) => number} pgfn Page altering function.
+ * @returns {() => void} Page change handler.
+ */
 const get_page_change_handler = (pgfn) => {
-    return async () => {
+    return () => {
         const url = new URL(location);
         let page = Number.parseInt(url.searchParams.get("page", 0)) || 0;
         if (page < 0) page = 0;
