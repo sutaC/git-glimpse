@@ -102,7 +102,7 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
 3. Build static files:
 
     ```bash
-    docker compose --profile manual run --rm build_static
+    ./scripts/run_build_static.sh
     ```
 
 4. Setup cron jobs:
