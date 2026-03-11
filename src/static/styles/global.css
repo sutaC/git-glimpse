@@ -432,6 +432,7 @@ table {
 table th {
     font-weight: bold;
     background-color: var(--accent-500);
+    text-shadow: 0 0 0.125em var(--accent-950);
 }
 
 table tr {
@@ -443,19 +444,19 @@ table tr:nth-child(2n) {
 }
 
 .status_success {
-    color: green;
+    color: #00cc00;
 }
 
 .status_pending {
-    color: grey;
+    color: #a6a6a6;
 }
 
 .status_violation {
-    color: coral;
+    color: #ff7f50;
 }
 
 .status_failed {
-    color: crimson;
+    color: #ff8080;
 }
 
 .pager {

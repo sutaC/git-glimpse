@@ -8,8 +8,21 @@
     </tr>
     {% for client, location, repo, timestamp in views %}
     <tr>
-        <td>{{client.capitalize()}}</td>
-        <td>{{location or "Unknown"}}</td>
+        <td>{{" ".join(client.split("_")).capitalize()}}</td>
+        <td>
+            <img
+                src="{{'https://flagcdn.com/'+location.lower()+'.svg' if location else static_file('images/unflag.svg')}}"
+                onerror="
+                        this.src = '{{static_file('images/errflag.svg')}}';
+                        this.onerror = null;
+                "
+                width="30"
+                height="20"
+                alt="{{location or 'Unknown'}}"
+                title="{{location or 'Unknown'}}"
+                style="cursor: help; display: block; margin: 0.125rem auto"
+            />
+        </td>
         <td>{{repo}}</td>
         <td>{{timestamp}}</td>
     </tr>

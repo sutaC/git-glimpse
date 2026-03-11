@@ -50,6 +50,7 @@ main > div {
     background-color: var(--primary-500);
     filter: drop-shadow(0 0 0.25rem var(--primary-800));
     border-bottom: 1px solid transparent;
+    text-shadow: 0 0 0.125rem var(--primary-900);
 }
 
 .cta .action {
@@ -82,6 +83,7 @@ main > div {
 
 .cta .action a:hover {
     background-color: var(--primary-500);
+    text-shadow: 0 0 0.125rem var(--primary-900);
     filter: drop-shadow(0 0 0.25rem var(--primary-800));
     border-color: transparent;
     box-shadow: none;
