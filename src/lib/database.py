@@ -52,9 +52,12 @@ class Database:
                 `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
                 `created` INTEGER NOT NULL DEFAULT (unixepoch()),
                 `last_login` INTERGER NON NULL DEFAULT(unixepoch()),
-                `inactive` INTEGER NOT NULL DEFAULT 0 CHECK (`inactive` IN (0, 1))
+                `inactive` INTEGER NOT NULL DEFAULT 0 CHECK (`inactive` IN (0, 1)),
+                `notifications` INTEGER NOT NULL DEFAULT 0 CHECK (`notifications` IN (0, 1))
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
+            CREATE INDEX IF NOT EXISTS `idx_users_notifications` ON `users`(`notifications`);
+            CREATE INDEX IF NOT EXISTS `idx_users_inactive_last_login` ON `users`(`inactive`, `last_login`);
             -- user_bans
             CREATE TABLE IF NOT EXISTS `user_bans` (
                 `id` INTEGER PRIMARY KEY,
@@ -663,6 +666,28 @@ class Database:
         """
         return self._fetch_value('SELECT `email` FROM `users` WHERE `id` = ?;', (user_id,)) 
     
+    def get_user_notifications(self, user_id: int) -> bool:
+        """Retrieve user notifications preference.
+        
+        Args:
+            user_id: User id.
+
+        Retruns:
+            User notifications preference. 
+        """
+        return bool(self._fetch_value('SELECT `notifications` FROM `users` WHERE `id` = ?;', (user_id,)))
+
+
+    def set_user_notifications(self, user_id: int, notifications: bool) -> None:
+        """Sets user notifications preference.
+        
+        Args:
+            user_id: User id.
+            notifications: User notifications preference
+        """
+        self._cursor().execute('UPDATE `users` SET `notifications` = ? WHERE `id` = ?;', (notifications, user_id))
+        self._commit()
+
     def get_user_limits(self, user_id: int) -> Limits | None:
         """Retrieve user limits data.
         
