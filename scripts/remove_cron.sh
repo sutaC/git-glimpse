@@ -8,3 +8,5 @@ CRON_CMD="$PROJECT_DIR/scripts/run_cleanup.sh >> $PROJECT_DIR/logs/cleanup.log 2
 (crontab -l 2>/dev/null | grep -vF "$CRON_CMD") | crontab -
 
 echo "Cleanup worker cron job removed."
+
+# TODO: add notifications worker

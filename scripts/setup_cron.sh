@@ -14,3 +14,5 @@ CRON_JOB="0 2 * * * $PROJECT_DIR/scripts/run_cleanup.sh >> $PROJECT_DIR/logs/cle
 (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
 
 echo "Cleanup worker cron job installed."
+
+# TODO: add notifications worker

@@ -66,6 +66,10 @@ class Event:
     EMAIL_SEND_FAILED = "email.send.failed"
     # Repo views
     REPO_VIEW_ADDED = "repo.view.added"
+    # Notificarions
+    NOTIFICATIONS_STARTED = "notifications.started"
+    NOTIFICATIONS_FINISHED = "notifications.finished"
+    NOTIFICATIONS_ERROR = "notifications.error"
 
 class Code:
     """Codes for logging."""

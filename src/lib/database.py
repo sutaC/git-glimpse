@@ -1,5 +1,5 @@
 """Module provides interface for database usage."""
-from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
+from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserNotificationsData, UserRecover, UserTs, Views
 from src.lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -768,6 +768,24 @@ class Database:
         """
         self._cursor().execute('UPDATE `users` SET `last_login` = unixepoch(), `inactive` = 0 WHERE `id` = ?;', (user_id,))
         self._commit()
+
+    def list_user_notifications_data(self) -> list[UserNotificationsData]:
+        """Retrieve all user notifications data.
+        
+        Returns:
+            List of user notifications data.
+        """
+        return self._fetch_all('''
+            SELECT `u`.`id`, `u`.`login`, `u`.`email`, COUNT(DISTINCT `rv`.`visitor_hash`) AS `views`
+            FROM `users` AS `u`
+            JOIN `repos` AS `r` ON `u`.`id` = `r`.`user_id`
+            JOIN `repo_views` AS `rv` ON `r`.`id` = `rv`.`repo_id` 
+            WHERE `u`.`is_verified` = 1
+                AND `u`.`notifications` = 1
+                AND `rv`.`first_view` > (unixepoch() - 86400) -- last 24h
+            GROUP BY `u`.`id`
+            HAVING `views` > 0;
+        ''', row_type=UserNotificationsData)
 
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:

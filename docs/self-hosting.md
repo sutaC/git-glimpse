@@ -1,3 +1,7 @@
+TODO: add notifications worker
+
+---
+
 # Self Hosting
 
 ## Requirements
