@@ -10,11 +10,11 @@ import os
 _ENV = os.environ.get("ENV", "dev")
 _DOMAIN = os.environ.get("DOMAIN", "")
 _CONTACT = os.environ.get("CONTACT_EMAIL", "")
-_SMTP_HOST = os.environ.get("_SMTP_HOST", "")
-_SMTP_PORT = int(os.environ.get("_SMTP_PORT", 587))
-_SMTP_USER = os.environ.get("_SMTP_USER", "")
-_SMTP_PASS = os.environ.get("__SMTP_PASS", "")
-_SMTP_FROM = os.environ.get("_SMTP_FROM", "")
+_SMTP_HOST = os.environ.get("SMTP_HOST", "")
+_SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+_SMTP_USER = os.environ.get("SMTP_USER", "")
+_SMTP_PASS = os.environ.get("SMTP_PASS", "")
+_SMTP_FROM = os.environ.get("SMTP_FROM", "")
 
 # --- intents ---
 class EmailIntent:
