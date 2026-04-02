@@ -25,6 +25,7 @@ class EmailIntent:
     REPO_REMOVAL = "intent.repo.removal"
     ACCOUNT_BANNED = "intent.account.banned"
     ACCOUNT_UNBANNED = "intent.account.ubbanned"
+    VIEWS_NOTIFICATION = "intent.views.notification"
 
 @dataclass(frozen=True)
 class _EmailIntentSpec:
@@ -63,6 +64,11 @@ _INTENTS: dict[str, _EmailIntentSpec] = {
         subject="Access restored to your Git Glimpse account",
         requires_verified=True,
         required_fields=frozenset({"user"})
+    ),
+    EmailIntent.VIEWS_NOTIFICATION: _EmailIntentSpec(
+        subject="New activity on your Git Glimpse repositories",
+        requires_verified=True,
+        required_fields=frozenset({"user", "timestamp", "views"})
     )
 }
 """Email inntent codes mapped to EmailIntentSepecs."""
@@ -228,6 +234,32 @@ You can log in here:
 {_email_footer()}
 '''.strip()
 
+def _tpl_views_notification(*, user: str, timestamp: str, views: int) -> str:
+    """Renders template for views notification email.
+    
+    Args:
+        user: User login.
+        timestamp: Timestamp of notification.
+        views: Repository views.
+
+    Returns:
+        Email content.
+    """
+    return f'''
+Hello {escape(user)},
+
+Your repositories on Git Glimpse got {escape(views)} new views in last 24 hours!
+
+Measurement time: {escape(timestamp)}
+
+You can check out new views here:
+{escape(_get_base_url() + '/views')}
+
+To change your notification preferences visit your profile:
+{escape(_get_base_url() + '/user')}
+{_email_footer()}
+'''.strip()
+
 _TEMPLATES: dict[str, Callable[..., str]] = {
     EmailIntent.EMAIL_VERIFICATION: _tpl_email_verification,
     EmailIntent.PASSWORD_RECOVERY: _tpl_password_recovery,
@@ -235,6 +267,7 @@ _TEMPLATES: dict[str, Callable[..., str]] = {
     EmailIntent.REPO_REMOVAL: _tpl_repo_removal,
     EmailIntent.ACCOUNT_BANNED: _tpl_account_banned,
     EmailIntent.ACCOUNT_UNBANNED: _tpl_account_unbanned,
+    EmailIntent.VIEWS_NOTIFICATION: _tpl_views_notification,
 }
 """Template intent codes mapped to templating functions."""
 

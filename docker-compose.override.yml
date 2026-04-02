@@ -28,6 +28,9 @@ services:
     cleanup_worker:
         volumes:
             - ./data:/app/data
+    notifications_worker:
+        volumes:
+            - ./data:/app/data
     root_passwd:
         volumes:
             - ./data:/app/data

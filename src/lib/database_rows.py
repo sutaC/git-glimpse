@@ -77,7 +77,13 @@ class UserTs(NamedTuple):
 
 class Limits(NamedTuple):
     build_limit: int
-    repo_limit: int    
+    repo_limit: int   
+
+class UserNotificationsData(NamedTuple):
+    id: int
+    login: str
+    email: str
+    views: int
 
 # --- sessions
 class Session(NamedTuple):

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/csrf_field.html" import csrf_field %}
 <!-- prettier-ignore -->
 {% block title %}Profile | Git Glimpse{% endblock %}
 
@@ -23,15 +24,39 @@
             <span class="tag">Role:</span>
             {{role}}
         </p>
+        {% if g.user.login != "root" %}
         <p>
             <span class="tag">Email:</span>
-            {{email or "-"}}
-            <small class="tag">
-                {{"" if not email else "(verified)" if g.user.is_verified else "(not verified)"}}
-            </small>
+            {{email}}
+            <small class="tag">{{"(verified)" if g.user.is_verified else "(not verified)"}}</small>
         </p>
+
+        {% endif %}
     </div>
 </section>
+{% if g.user.login != "root" %}
+<section>
+    <div class="section_header">
+        <h2>Notifications</h2>
+    </div>
+    <div class="section_content">
+        <p>
+            <span class="tag">Notifications:</span>
+            {{ "yes" if notifications else 'no'}}
+        </p>
+        <p>
+            <small>
+                Notifications are send daily via email if any of your repositories get views.
+            </small>
+        </p>
+        <form action="/user" method="post">
+            {{ csrf_field() }}
+            <input type="hidden" name="notifications" value="{{'0' if notifications else '1'}}" />
+            <button type="submit" {{"" if g.user.is_verified else "disabled"}}>Change preference</button>
+        </form>
+    </div>
+</section>
+{% endif %}
 <section>
     <div class="section_header">
         <h2>Quotas</h2>

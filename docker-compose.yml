@@ -25,6 +25,15 @@ services:
             - data_volume:/app/data
         env_file:
             - .env
+    notifications_worker:
+        build: .
+        profiles:
+            - manual
+        command: ["python", "-m", "src.notifications_worker"]
+        volumes:
+            - data_volume:/app/data
+        env_file:
+            - .env
     root_passwd:
         build: .
         profiles:

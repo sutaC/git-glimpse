@@ -430,13 +430,23 @@ def repos_remove(repo_id: str):
     lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
     return redirect("/dashboard")
 
-@app.route("/user")
+@app.route("/user", methods=["GET", "POST"])
 @fh.login_required()
 @fh.not_banned_required()
 def user():
+    if request.method == "POST":
+        if g.user.login == "root":
+            abort(400, "Cannot remove root user")
+        notifications = request.form.get("notifications")
+        if notifications not in ['0', '1']:
+            abort(400, "Missing or invalid parameters")
+        notifications = notifications == '1'
+        db.set_user_notifications(g.user.user_id, notifications)
+    # GET
     limits = db.get_user_limits(g.user.user_id)
     if not limits: abort(404, "Could not find user data")
     email = db.get_user_email(g.user.user_id)
+    notifications = db.get_user_notifications(g.user.user_id)
     build_count = db.count_user_builds(g.user.user_id)
     repo_count = db.count_user_repos(g.user.user_id)
     return render_template(
@@ -446,7 +456,8 @@ def user():
         build_count=build_count,
         repo_count=repo_count,
         repo_limit=limits.repo_limit,
-        build_limit=limits.build_limit
+        build_limit=limits.build_limit,
+        notifications=notifications
     )
 
 @app.route("/user/remove", methods=["GET", "POST"])

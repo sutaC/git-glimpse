@@ -1,5 +1,5 @@
 """Module provides interface for database usage."""
-from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserRecover, UserTs, Views
+from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserNotificationsData, UserRecover, UserTs, Views
 from src.lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -52,9 +52,12 @@ class Database:
                 `role` TEXT NOT NULL DEFAULT 'u' REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
                 `created` INTEGER NOT NULL DEFAULT (unixepoch()),
                 `last_login` INTERGER NON NULL DEFAULT(unixepoch()),
-                `inactive` INTEGER NOT NULL DEFAULT 0 CHECK (`inactive` IN (0, 1))
+                `inactive` INTEGER NOT NULL DEFAULT 0 CHECK (`inactive` IN (0, 1)),
+                `notifications` INTEGER NOT NULL DEFAULT 0 CHECK (`notifications` IN (0, 1))
             );
             CREATE INDEX IF NOT EXISTS `idx_users_login` ON `users`(`login`);
+            CREATE INDEX IF NOT EXISTS `idx_users_notifications` ON `users`(`notifications`);
+            CREATE INDEX IF NOT EXISTS `idx_users_inactive_last_login` ON `users`(`inactive`, `last_login`);
             -- user_bans
             CREATE TABLE IF NOT EXISTS `user_bans` (
                 `id` INTEGER PRIMARY KEY,
@@ -663,6 +666,28 @@ class Database:
         """
         return self._fetch_value('SELECT `email` FROM `users` WHERE `id` = ?;', (user_id,)) 
     
+    def get_user_notifications(self, user_id: int) -> bool:
+        """Retrieve user notifications preference.
+        
+        Args:
+            user_id: User id.
+
+        Retruns:
+            User notifications preference. 
+        """
+        return bool(self._fetch_value('SELECT `notifications` FROM `users` WHERE `id` = ?;', (user_id,)))
+
+
+    def set_user_notifications(self, user_id: int, notifications: bool) -> None:
+        """Sets user notifications preference.
+        
+        Args:
+            user_id: User id.
+            notifications: User notifications preference
+        """
+        self._cursor().execute('UPDATE `users` SET `notifications` = ? WHERE `id` = ?;', (notifications, user_id))
+        self._commit()
+
     def get_user_limits(self, user_id: int) -> Limits | None:
         """Retrieve user limits data.
         
@@ -743,6 +768,24 @@ class Database:
         """
         self._cursor().execute('UPDATE `users` SET `last_login` = unixepoch(), `inactive` = 0 WHERE `id` = ?;', (user_id,))
         self._commit()
+
+    def list_user_notifications_data(self) -> list[UserNotificationsData]:
+        """Retrieve all user notifications data.
+        
+        Returns:
+            List of user notifications data.
+        """
+        return self._fetch_all('''
+            SELECT `u`.`id`, `u`.`login`, `u`.`email`, COUNT(DISTINCT `rv`.`visitor_hash`) AS `views`
+            FROM `users` AS `u`
+            JOIN `repos` AS `r` ON `u`.`id` = `r`.`user_id`
+            JOIN `repo_views` AS `rv` ON `r`.`id` = `rv`.`repo_id` 
+            WHERE `u`.`is_verified` = 1
+                AND `u`.`notifications` = 1
+                AND `rv`.`first_view` > (unixepoch() - 86400) -- last 24h
+            GROUP BY `u`.`id`
+            HAVING `views` > 0;
+        ''', row_type=UserNotificationsData)
 
     # --- sessions
     def add_session(self, user_id: int, expires: int) -> str:

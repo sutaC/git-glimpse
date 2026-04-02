@@ -1,3 +1,17 @@
+<a id="notifications_worker"></a>
+
+# notifications\_worker
+
+<a id="notifications_worker.send_notifications"></a>
+
+#### send\_notifications
+
+```python
+def send_notifications() -> None
+```
+
+Send notifications to all relevant users.
+
 <a id="build_worker"></a>
 
 # build\_worker
@@ -933,6 +947,38 @@ Retrieve user email.
   Retruns:
   User email if found, otherwise None.
 
+<a id="lib.database.Database.get_user_notifications"></a>
+
+#### get\_user\_notifications
+
+```python
+def get_user_notifications(user_id: int) -> bool
+```
+
+Retrieve user notifications preference.
+
+**Arguments**:
+
+- `user_id` - User id.
+  
+  Retruns:
+  User notifications preference.
+
+<a id="lib.database.Database.set_user_notifications"></a>
+
+#### set\_user\_notifications
+
+```python
+def set_user_notifications(user_id: int, notifications: bool) -> None
+```
+
+Sets user notifications preference.
+
+**Arguments**:
+
+- `user_id` - User id.
+- `notifications` - User notifications preference
+
 <a id="lib.database.Database.get_user_limits"></a>
 
 #### get\_user\_limits
@@ -1011,6 +1057,20 @@ Sets user last login timestamp to current timestamps.
 **Arguments**:
 
 - `user_id` - User id.
+
+<a id="lib.database.Database.list_user_notifications_data"></a>
+
+#### list\_user\_notifications\_data
+
+```python
+def list_user_notifications_data() -> list[UserNotificationsData]
+```
+
+Retrieve all user notifications data.
+
+**Returns**:
+
+  List of user notifications data.
 
 <a id="lib.database.Database.add_session"></a>
 

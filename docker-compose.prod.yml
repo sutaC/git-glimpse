@@ -15,6 +15,10 @@ services:
         volumes:
             - /mnt/git-glimpse-data:/app/data
         read_only: true
+    notifications_worker:
+        volumes:
+            - /mnt/git-glimpse-data:/app/data
+        read_only: true
     root_passwd:
         volumes:
             - /mnt/git-glimpse-data:/app/data
