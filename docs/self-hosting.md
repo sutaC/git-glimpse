@@ -1,14 +1,10 @@
-TODO: add notifications worker
-
----
-
 # Self Hosting
 
 ## Requirements
 
 - Docker
 - Docker Compose
-- Cron (optional, required for automated cleanup in production)
+- Cron (optional, required for automated workers in production)
 
 ## Environment configuration
 
@@ -57,7 +53,11 @@ Development uses Docker with:
     ```bash
     docker compose --profile manual run --rm cleanup_worker
     ```
-6. Reset root password:
+6. Notifications worker (manual):
+    ```bash
+    docker compose --profile manual run --rm notifications_worker
+    ```
+7. Reset root password:
 
     ```bash
     ./scripts/run_root_passwd.sh --password '<password>'
@@ -113,7 +113,7 @@ Data is stored on a dedicated host path `/mnt/git-glimpse-data` via docker-compo
     ```bash
     ./scripts/setup_cron.sh
     ```
-    > Schedules the cleanup worker to run once per day via cron.
+    > Schedules the cleanup worker and notifications worker to run once per day via cron.
 5. Start the app:
     ```bash
     docker compose -f docker-compose.yml -f docker-compose.prod.yml up
@@ -181,7 +181,7 @@ server {
 To completely remove the production setup, use the provided helper scripts:
 
 - `remove_cron.sh`
-    > Removes the scheduled cron job responsible for running the cleanup worker.
+    > Removes the scheduled cron job responsible for running the cleanup worker and notifications worker.
 - `remove_storage.sh`
     > Deletes the external production data directory (`/mnt/git-glimpse-data`).  
     > This will **permanently remove**:
