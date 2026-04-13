@@ -156,7 +156,7 @@ def repos(repo_id: str, sub: str):
     day = int(time.time() // 86400)
     rv_key = f"rv_{repo_id}_{day}"
     viewed = request.cookies.get(rv_key)
-    if not viewed and (not g.user or g.user.user_id != db.get_repo_user_id(repo_id)):
+    if not viewed and (not g.user or (g.user.role != 'a' and g.user.user_id != db.get_repo_user_id(repo_id))):
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
         client = track.detect_client(request.user_agent.string)
         if client != "bot": # Skips bot from db entry
