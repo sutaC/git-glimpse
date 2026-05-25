@@ -173,6 +173,12 @@ server {
         access_log off;
         expires 1d;
     }
+
+    location = /sitemap.xml {
+        alias /src/static/sitemap.xml;
+        access_log off;
+        expires 1d;
+    }
 }
 ```
 

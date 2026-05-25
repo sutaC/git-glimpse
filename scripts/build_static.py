@@ -23,7 +23,7 @@ if __name__ == "__main__":
             continue
         if "dist" in path.parts:
             continue
-        if path.name == "robots.txt":
+        if path.name in ["robots.txt", "sitemap.xml"]:
             continue
         rel = path.relative_to(SRC)
         content: bytes = path.read_bytes()
