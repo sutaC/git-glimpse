@@ -193,6 +193,11 @@ hr {
     border-color: var(--secondary-700);
 }
 
+mark {
+    background-color: var(--primary-500);
+    color: var(--text-950);
+}
+
 /* --- base --- */
 
 .wrap {
@@ -296,12 +301,38 @@ main > * {
     max-width: 80rem;
 }
 
+body:has(dialog:open) {
+    overflow: hidden;
+}
+
+dialog:open {
+    border: 1px solid var(--secondary-800);
+    border-radius: 0.375rem;
+    background-color: var(--background-900);
+    color: inherit;
+    font-family: inherit;
+    text-align: center;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 25rem;
+}
+
+dialog:open::backdrop {
+    background-color: var(--text-950);
+    opacity: 0.8;
+}
+
 section {
     margin: 2rem auto;
     border: 1px solid var(--secondary-800);
     border-radius: 0.375rem;
     background-color: var(--background-900);
     overflow: hidden;
+    color: var(--text-100);
 }
 
 .section_header {

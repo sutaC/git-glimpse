@@ -1,5 +1,5 @@
 """Module provides basic utility functions for user input validation and parsing data for templates."""
-from src.lib.database_rows import BuildActivity, RepoActivity, UserActivity, Views
+from src.lib.database_rows import BuildActivity, CliToken, RepoActivity, UserActivity, Views
 from datetime import datetime, timezone
 import re
 
@@ -194,4 +194,18 @@ def views_to_readable(views: list[Views]):
     return [
         (v.client, v.location, v.repo, timestamp_to_str(v.timestamp))
         for v in views
+    ]
+
+def cli_tokens_to_readable(cli_tokens: list[CliToken]):
+    """Parses CliTokens list to string formatted tuple for template display.
+
+    Args:
+        builds: CliTokens list to parse.
+    
+    Returns:
+        String formatted tuple.
+    """
+    return [
+        (t.id, t.name, timestamp_to_str(t.created_at), timestamp_to_str(t.last_used_at))
+        for t in cli_tokens
     ]

@@ -449,6 +449,7 @@ def user():
     notifications = db.get_user_notifications(g.user.user_id)
     build_count = db.count_user_builds(g.user.user_id)
     repo_count = db.count_user_repos(g.user.user_id)
+    cli_tokens = db.list_user_cli_tokens(g.user.user_id)
     return render_template(
         "user.html",
         role=utils.code_to_role(g.user.role), 
@@ -457,7 +458,9 @@ def user():
         repo_count=repo_count,
         repo_limit=limits.repo_limit,
         build_limit=limits.build_limit,
-        notifications=notifications
+        notifications=notifications,
+        cli_tokens=utils.cli_tokens_to_readable(cli_tokens),
+        cli_tokens_max=len(cli_tokens) >= 5
     )
 
 @app.route("/user/remove", methods=["GET", "POST"])
@@ -926,3 +929,41 @@ def banned():
         ban_reason=ban.ban_reason,
         banned_at=utils.timestamp_to_str(ban.banned_at),
     )
+
+@fh.login_required()
+@fh.verification_required()
+@fh.not_banned_required()
+@app.post("/cli/token")
+def clitoken():
+    name = request.form.get("name", "").strip()
+    if not name or len(name) > 32:
+        return render_template("cli_token.html", err_msg="Invalid token name")
+    if db.has_user_cli_token_name(g.user.user_id, name):
+        return render_template("cli_token.html", err_msg="Tokens cannot have duplicate names")
+    token_count = db.count_user_cli_tokens(g.user.user_id)
+    if token_count >= 5:
+        return render_template("cli_token.html", err_msg="Token limit is reached (5 cli tokens)")
+    raw, hashed = auth.generate_api_token() 
+    token_id = db.add_cli_token(g.user.user_id, name, hashed)
+    lg.log(lg.Event.AUTH_CLITOKEN_CREATE, level=lg.Level.INFO, user_id=g.user.user_id, extra={"token_id": token_id})
+    return render_template("cli_token.html", name=name, raw_token=raw)
+
+@fh.login_required()
+@fh.verification_required()
+@fh.not_banned_required()
+@app.post("/cli/token/revoke")
+def clitoken_revoke():
+    token_id = request.form.get("token_id")
+    if not token_id:
+        lg.log(lg.Event.AUTH_CLITOKEN_REVOKE_INVALID, level=lg.Level.WARN, user_id=g.user.user_id, extra={"token_id": None})
+        abort(400)
+    try: token_id = int(token_id)
+    except ValueError: 
+        lg.log(lg.Event.AUTH_CLITOKEN_REVOKE_INVALID, level=lg.Level.WARN, user_id=g.user.user_id, extra={"token_id": token_id})
+        abort(400)
+    if not db.has_user_cli_token(g.user.user_id, token_id):
+        lg.log(lg.Event.AUTH_CLITOKEN_REVOKE_INVALID, level=lg.Level.WARN, user_id=g.user.user_id, extra={"token_id": token_id})
+        abort(400)
+    db.delete_cli_token(g.user.user_id, token_id)
+    lg.log(lg.Event.AUTH_CLITOKEN_REVOKE, level=lg.Level.INFO, user_id=g.user.user_id, extra={"token_id": token_id})
+    return redirect("/user#hCliTokens")

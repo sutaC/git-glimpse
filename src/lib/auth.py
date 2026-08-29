@@ -1,6 +1,8 @@
 """Module provides authentication functions and authorization decotators for Flask endpoints."""
 from urllib.parse import urlparse
 from typing import NamedTuple
+import hashlib
+import secrets
 import bcrypt
 import time
 import os
@@ -87,3 +89,15 @@ def get_session_expiriation(role: str) -> int:
     """
     if _ENV != "prod": return int(time.time()) + 86_400 # now + 24h (development)
     return int(time.time()) + (1200 if role == 'a' else 3600) # now + 1h (user) + 20min (admin) 
+
+
+def generate_api_token() -> tuple[str, str]:
+    """Generates api token for cli.
+
+    Returns:
+        - Raw token for user.
+        - Hashed token for db.
+    """
+    raw_token =  secrets.token_hex(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    return raw_token, token_hash

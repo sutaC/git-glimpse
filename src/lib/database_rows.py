@@ -126,3 +126,10 @@ class Views(NamedTuple):
     location: str | None
     repo: str
     timestamp: int
+
+# --- cli_tokens
+class CliToken(NamedTuple):
+    id: int
+    name: str
+    created_at: int
+    last_used_at: int
