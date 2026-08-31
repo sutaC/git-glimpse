@@ -132,22 +132,22 @@ def use_cli_token():
     return decorator
 
 # --- route handlers ---
-@app.route("/")
+@app.get("/")
 @fh.use_cache()
 def root():
     return render_template("index.html")
 
-@app.route("/rules")
+@app.get("/rules")
 @fh.use_cache()
 def rules():
     return render_template("rules.html")
 
-@app.route("/repos/demo")
+@app.get("/repos/demo")
 def repos_demo():
     return redirect(f"/repos/{os.getenv("DEMO_REPO_ID", "")}/")
 
-@app.route("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
-@app.route("/repos/<string:repo_id>/<path:sub>")
+@app.get("/repos/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
+@app.get("/repos/<string:repo_id>/<path:sub>")
 @fh.use_cache()
 def repos(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
@@ -195,8 +195,8 @@ def repos(repo_id: str, sub: str):
         response.set_cookie(rv_key, "1", max_age=max_age, secure=True, samesite="Lax")
     return response
 
-@app.route("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
-@app.route("/raw/<string:repo_id>/<path:sub>")
+@app.get("/raw/<string:repo_id>", defaults={"sub": ""}, strict_slashes=False)
+@app.get("/raw/<string:repo_id>/<path:sub>")
 def raw(repo_id: str, sub: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_select(repo_id)
@@ -340,7 +340,7 @@ def register():
     )
     return response
 
-@app.route("/logout")
+@app.get("/logout")
 @fh.login_required()
 def logout():
     db.delete_session(g.user.session_id)
@@ -350,14 +350,14 @@ def logout():
     lg.log(lg.Event.AUTH_LOGOUT, user_id=g.user.user_id)
     return response
 
-@app.route("/dashboard")
+@app.get("/dashboard")
 @fh.login_required()
 @fh.not_banned_required()
 def dashboard():
     repos = db.list_user_repos(g.user.user_id)
     return render_template("dashboard.html", repos=repos)
 
-@app.route("/views")
+@app.get("/views")
 @fh.login_required()
 @fh.not_banned_required()
 @fh.verification_required()
@@ -384,7 +384,7 @@ def views():
         ))
     return response
 
-@app.route("/repos/details/<string:repo_id>")
+@app.get("/repos/details/<string:repo_id>")
 @fh.login_required()
 @fh.not_banned_required()
 @fh.verification_required()
@@ -416,7 +416,7 @@ def repos_details(repo_id: str):
         visits=visits
     )
 
-@app.route("/repos/build/<string:repo_id>", methods=["POST"])
+@app.post("/repos/build/<string:repo_id>")
 @fh.login_required()
 @fh.not_banned_required()
 @fh.verification_required()
@@ -436,7 +436,7 @@ def repos_build(repo_id: str):
     lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return redirect(f"/repos/details/{repo_id}")
 
-@app.route("/repos/remove/<string:repo_id>", methods=["POST"])
+@app.post("/repos/remove/<string:repo_id>")
 @fh.login_required()
 @fh.not_banned_required()
 @fh.verification_required()
@@ -509,7 +509,7 @@ def user_remove():
     lg.log(lg.Event.AUTH_USER_REMOVED, user_id=g.user.user_id)
     return redirect("/login")
 
-@app.route("/admin")
+@app.get("/admin")
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
@@ -559,7 +559,7 @@ def admin_cleanup():
     Thread(target=run, daemon=True).start()
     return redirect("/admin#hCleanup")
 
-@app.route("/admin/repos")
+@app.get("/admin/repos")
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
@@ -599,7 +599,7 @@ def admin_repos():
         ))
     return response
 
-@app.route("/admin/builds")
+@app.get("/admin/builds")
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
@@ -633,7 +633,7 @@ def admin_builds():
         ))
     return response
 
-@app.route("/admin/users")
+@app.get("/admin/users")
 @fh.login_required()
 @fh.verification_required()
 @fh.role_required('a')
@@ -809,7 +809,7 @@ def admin_users_id(user_id: int):
         )
     return redirect(f'/admin/users/{user_id}')
 
-@app.route("/verify")
+@app.get("/verify")
 @fh.login_required()
 @fh.not_banned_required()
 def verify():
@@ -828,7 +828,7 @@ def verify():
     lg.log(lg.Event.AUTH_EMAIL_VERIFY_COMPLETE, user_id=g.user.user_id)
     return render_template("verify.html", is_verified=True)
 
-@app.route("/verify/resend", methods=["POST"])
+@app.post("/verify/resend")
 @fh.not_banned_required()
 @fh.login_required()
 def verify_resend():
@@ -944,7 +944,7 @@ def password_reset():
     lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
     return redirect("/login")
 
-@app.route("/banned")
+@app.get("/banned")
 @fh.login_required()
 def banned():
     ban = db.get_user_ban(g.user.user_id)
@@ -1114,7 +1114,6 @@ def cli_repos_build(repo_id: str):
     if not repo: 
         return jsonify({"error": "Not found"}), 404
     if int(repo.user_id) != g.user.user_id:
-        print(f"{repo.user_id=}, {g.user.user_id=}")
         return jsonify({"error": "Not found"}), 404
     limits = db.get_user_limits(g.user.user_id)
     if not limits: 
@@ -1127,3 +1126,16 @@ def cli_repos_build(repo_id: str):
     build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
     lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return "", 202
+
+@app.get("/cli/repos/build/<string:repo_id>/status")
+@use_cli_token()
+def cli_repos_build_status(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii():  
+        return jsonify({"error": "Not found"}), 404
+    repo = db.get_repo(repo_id)
+    if not repo: 
+        return jsonify({"error": "Not found"}), 404
+    if int(repo.user_id) != g.user.user_id: 
+        return jsonify({"error": "Not found"}), 404
+    build = db.get_latest_build(repo_id)
+    return jsonify({"status": utils.code_to_status(build.status) if build else "?"})
