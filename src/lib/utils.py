@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import re
 
 _GITHUB_URL_REGEX = re.compile(r'^(?:https:\/\/github\.com\/|git@github\.com:)[\w\-]+\/[\w\-]+(?:\.git)?$')
+_GITHUB_URL_OWNER_REPO = r"(?:https?://github\.com/|git@github\.com:)([\w-]+)/([\w-]+?)(?:\.git)?$"
 _EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # --- validatiors ---
@@ -25,6 +26,20 @@ def is_valid_repo_url(url: str) -> bool:
         URL resource existence. 
     """
     return bool(_GITHUB_URL_REGEX.match(url))
+
+def _parse_github_owner_repo(url: str) -> tuple[str, str]:
+    match = re.match(_GITHUB_URL_OWNER_REPO, url.strip())
+    assert match
+    owner, repo = match.groups()
+    return owner, repo
+
+def create_alt_repo_url(url: str):
+    assert is_valid_repo_url(url)
+    owner, repo = _parse_github_owner_repo(url)
+    if url.startswith("https://"):
+        return f"git@github.com:{owner}/{repo}.git"
+    else:
+        return f"https://github.com/{owner}/{repo}.git"
 
 def is_valid_email(email: str) -> bool:
     """Validate email.

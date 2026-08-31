@@ -1,5 +1,5 @@
 """Module provides interface for database usage."""
-from src.lib.database_rows import Build, BuildActivity, BuildWork, CliToken, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserNotificationsData, UserRecover, UserTs, Views
+from src.lib.database_rows import *
 from src.lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -401,17 +401,17 @@ class Database:
         self._cursor().execute('UPDATE `repos` SET `hidden` = ? WHERE `id` = ?;', ((1 if hidden else 0), repo_id))
         self._commit()
 
-    def is_repo_url_for_user(self, url: str, user_id: int) -> bool:
-        """Check if user has repo url.
+    def get_repo_by_url(self, url: str, user_id: int) -> str | None:
+        """Returns users repo id by repo url.
 
         Args:
             url: Repo url to find.
             user_id: User id.
 
         Returns:
-            True if user has repo url.
+            Repo id.
         """
-        return self._fetch_exists('SELECT 1 FROM `repos` WHERE `url` = ? AND `user_id` = ?;', (url, user_id))
+        return self._fetch_value('SELECT `id` FROM `repos` WHERE `user_id` = ? AND `url` = ?;', (user_id, url))
 
     def count_user_repos(self, user_id: int) -> int:
         """Count user repos
@@ -1339,4 +1339,21 @@ class Database:
             token_id: Cli token id.
         """
         self._cursor().execute('DELETE FROM `cli_tokens` AS `t` WHERE `t`.`id` = ? AND `t`.`user_id` = ?;', (token_id, user_id))
+        self._commit()
+
+    def get_user_by_cli_token(self, token_hash: str) -> UserCLI | None:
+        return self._fetch_one(''' 
+        SELECT `u`.`id`, `u`.`login`, `u`.`role`, `u`.`is_verified`, `u`.`inactive`,
+            (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned`
+        FROM cli_tokens AS `t`
+        JOIN `users` AS `u` ON `t`.`user_id` = `u`.`id`
+        WHERE `t`.`token_hash` = ?;
+        ''', (token_hash,), row_type=UserCLI)
+
+    def update_cli_token(self, token_hash: str) -> None:
+        self._cursor().execute('''
+        UPDATE `cli_tokens` 
+        SET `last_used_at` = unixepoch() 
+        WHERE `token_hash` = ?;
+        ''', (token_hash,))
         self._commit()

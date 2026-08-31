@@ -1,4 +1,4 @@
-from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g, url_for
+from flask import Flask, Response, render_template, get_template_attribute, abort, redirect, send_file, request, g, url_for, jsonify
 from src.lib import render, track, emails, utils, auth, git, flask_helpers as fh, logger as lg
 from src.globals import REPO_PATH, DATABASE_PATH, STATIC_MANIFEST_PATH
 from tempfile import NamedTemporaryFile
@@ -6,8 +6,10 @@ from src.lib.database import Database
 from flask_seasurf import SeaSurf
 from dotenv import load_dotenv
 from threading import Thread
+from functools import wraps
 from pathlib import Path
 import src.cleanup_worker as cworker
+import hashlib
 import json
 import time
 import os
@@ -105,6 +107,29 @@ def handle_errors(e):
         title=ERROR_PAGE_TITLES.get(code, "Error"), 
         message=str(e) if app.debug else None
     ), code
+
+def use_cli_token():
+    """Allows only users with valid cli token."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Missing or invali token format"}), 401
+            raw_token = auth_header.split(" ")[1]
+            token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+            user = db.get_user_by_cli_token(token_hash)
+            if not user:
+                return  jsonify({"error": "Invalid or revoked CLI token"}), 401
+            db.update_cli_token(token_hash)
+            if not user.is_verified:
+                return jsonify({"error": "User must verify first"}), 403
+            if user.is_banned:
+                return jsonify({"error": "User was banned"}), 403
+            g.user = auth.SessionUser("", *user)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 # --- route handlers ---
 @app.route("/")
@@ -224,7 +249,7 @@ def repos_add():
         return render_template("repos_add.html", error_msg="Missing url", url=url)
     if not utils.is_valid_repo_url(url):
         return render_template("repos_add.html", error_msg="Invalid url", url=url)
-    if db.is_repo_url_for_user(url, g.user.user_id):  
+    if db.get_repo_by_url(url, g.user.user_id) or db.get_repo_by_url(utils.create_alt_repo_url(url), g.user.user_id):  
         return render_template("repos_add.html", error_msg="Repo with that url already exists for that user", url=url)
     if ssh_key:
         if url.startswith("https://"): # uses HTTPS
@@ -919,8 +944,8 @@ def password_reset():
     lg.log(lg.Event.AUTH_PASSWORD_RESET_SUCCESS, user_id=uid)    
     return redirect("/login")
 
-@fh.login_required()
 @app.route("/banned")
+@fh.login_required()
 def banned():
     ban = db.get_user_ban(g.user.user_id)
     if not ban: return redirect("/dashboard")
@@ -930,10 +955,10 @@ def banned():
         banned_at=utils.timestamp_to_str(ban.banned_at),
     )
 
+@app.post("/cli/token")
 @fh.login_required()
 @fh.verification_required()
 @fh.not_banned_required()
-@app.post("/cli/token")
 def clitoken():
     name = request.form.get("name", "").strip()
     if not name or len(name) > 32:
@@ -948,10 +973,10 @@ def clitoken():
     lg.log(lg.Event.AUTH_CLITOKEN_CREATE, level=lg.Level.INFO, user_id=g.user.user_id, extra={"token_id": token_id})
     return render_template("cli_token.html", name=name, raw_token=raw)
 
+@app.post("/cli/token/revoke")
 @fh.login_required()
 @fh.verification_required()
 @fh.not_banned_required()
-@app.post("/cli/token/revoke")
 def clitoken_revoke():
     token_id = request.form.get("token_id")
     if not token_id:
@@ -967,3 +992,78 @@ def clitoken_revoke():
     db.delete_cli_token(g.user.user_id, token_id)
     lg.log(lg.Event.AUTH_CLITOKEN_REVOKE, level=lg.Level.INFO, user_id=g.user.user_id, extra={"token_id": token_id})
     return redirect("/user#hCliTokens")
+
+# --- cli api routes
+@app.get("/cli/user")
+@use_cli_token()
+def cli_user():
+    return jsonify({"username": g.user.login})
+
+@app.post("/cli/repos/add")
+@csrf.exempt
+@use_cli_token()
+def cli_repos_add():
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: 
+        return jsonify({"error": "Could not find user data"}), 404
+    user_repos = db.count_user_repos(g.user.user_id)
+    if user_repos >= limits.repo_limit:
+        return jsonify({"error": f"Reached repo limit per user ({user_repos}/{limits.repo_limit})"}), 400
+    user_builds = db.count_user_builds(g.user.user_id)
+    if user_builds >= limits.build_limit:
+        return jsonify({"error": f"Reached build limit per user ({user_builds}/{limits.build_limit})"}), 400
+    data = request.get_json()
+    url = data.get("url", "").strip()
+    ssh_key =  data.get("ssh_key")
+    if not url: 
+        return jsonify({"error": "Missing url"}), 400
+    if not utils.is_valid_repo_url(url):
+        return jsonify({"error": "Invalid url"}), 400
+    if db.get_repo_by_url(url, g.user.user_id) or db.get_repo_by_url(utils.create_alt_repo_url(url), g.user.user_id):  
+        return jsonify({"error": "Repo with that url already exists for that user"}), 409
+    if ssh_key:
+        if url.startswith("https://"): # uses HTTPS
+            return jsonify({"error": "To use ssh-key you need to provide ssh url"}), 400
+        ssh_key = git.normalize_ssh_key(ssh_key)
+        key_err = git.validate_ssh_key(ssh_key)
+        if key_err:
+            return jsonify({"error": key_err}), 400
+        ssh_key = git.encrypt_ssh_key(ssh_key)
+    elif url.startswith("git@github.com"): # uses SSH
+        return jsonify({"error": "To use ssh url you need to provide ssh-key"}), 400
+    else: ssh_key = None
+    repo_name = url.removesuffix(".git").rsplit("/",1)[-1]
+    repo_id = db.add_repo(g.user.user_id, url, repo_name, ssh_key)
+    lg.log(lg.Event.REPO_ADDED, repo_id=repo_id, user_id=g.user.user_id)
+    build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
+    lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
+    return jsonify({"repo_id": repo_id, "status": "pending"}), 202
+
+@app.get("/cli/repos/status/<string:repo_id>")
+@use_cli_token()
+def cli_repos_status(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): 
+        return jsonify({"error": "Not found"}), 404
+    repo = db.get_repo(repo_id)
+    if not repo or repo.user_id != g.user.user_id:
+        return jsonify({"error": "Not found"}), 404
+    build = db.get_latest_build(repo_id)
+    return jsonify({"status": utils.code_to_status(build.status) if build else "?"}), 200
+
+@app.post("/cli/repos/fetch")
+@csrf.exempt
+@use_cli_token()
+def cli_repos_fetch():
+    data = request.get_json()
+    url = data.get("url", "").strip()
+    if not url: 
+        return jsonify({"error": "Missing url"}), 400
+    if not utils.is_valid_repo_url(url):
+        return jsonify({"error": "Invalid url"}), 400
+    repo_id = db.get_repo_by_url(url, g.user.user_id)
+    if not repo_id:
+        alt_url = utils.create_alt_repo_url(url)
+        repo_id = db.get_repo_by_url(alt_url, g.user.user_id)
+    if not repo_id:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({"repo_id": repo_id})
