@@ -367,7 +367,8 @@ class Database:
         Returns:
             Repos owner id if found, otherwise None.
         """
-        return self._fetch_value('SELECT `user_id` FROM `repos` WHERE `id` = ?;', (repo_id,))
+        uid =  self._fetch_value('SELECT `user_id` FROM `repos` WHERE `id` = ?;', (repo_id,))
+        return int(uid) if uid else None
 
     def get_repo_for_clone(self, repo_id: str) -> RepoClone | None:
         """Retrieve repo clone data.

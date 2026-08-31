@@ -420,7 +420,7 @@ def repos_details(repo_id: str):
 @fh.login_required()
 @fh.not_banned_required()
 @fh.verification_required()
-def build(repo_id: str):
+def repos_build(repo_id: str):
     if len(repo_id) != 22 or not repo_id.isascii(): abort(404)
     repo = db.get_repo_for_clone(repo_id)
     if not repo: abort(404)
@@ -429,9 +429,9 @@ def build(repo_id: str):
     if not limits: abort(404, "Could not find user data")
     user_builds = db.count_user_builds(g.user.user_id)
     if user_builds >= limits.build_limit:  
-        abort(400, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
+        abort(420, f"Reached build limit per user ({user_builds}/{limits.build_limit})")
     if db.has_repo_active_build(repo_id):  
-        abort(400, "This repo already has pending build")
+        abort(425, "This repo already has pending build")
     build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
     lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
     return redirect(f"/repos/details/{repo_id}")
@@ -1008,10 +1008,10 @@ def cli_repos_add():
         return jsonify({"error": "Could not find user data"}), 404
     user_repos = db.count_user_repos(g.user.user_id)
     if user_repos >= limits.repo_limit:
-        return jsonify({"error": f"Reached repo limit per user ({user_repos}/{limits.repo_limit})"}), 400
+        return jsonify({"error": f"Reached repo limit per user ({user_repos}/{limits.repo_limit})"}), 420
     user_builds = db.count_user_builds(g.user.user_id)
     if user_builds >= limits.build_limit:
-        return jsonify({"error": f"Reached build limit per user ({user_builds}/{limits.build_limit})"}), 400
+        return jsonify({"error": f"Reached build limit per user ({user_builds}/{limits.build_limit})"}), 420
     data = request.get_json()
     url = data.get("url", "").strip()
     ssh_key =  data.get("ssh_key")
@@ -1037,7 +1037,7 @@ def cli_repos_add():
     lg.log(lg.Event.REPO_ADDED, repo_id=repo_id, user_id=g.user.user_id)
     build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
     lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
-    return jsonify({"repo_id": repo_id, "status": "pending"}), 202
+    return jsonify({"repo_id": repo_id}), 202
 
 @app.get("/cli/repos/status/<string:repo_id>")
 @use_cli_token()
@@ -1067,3 +1067,63 @@ def cli_repos_fetch():
     if not repo_id:
         return jsonify({"error": "Not found"}), 404
     return jsonify({"repo_id": repo_id})
+
+@app.get("/cli/user/limits")
+@use_cli_token()
+def cli_user_limits():
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: 
+        return jsonify({"error": "Could not find user data"}), 404
+    user_repos = db.count_user_repos(g.user.user_id)
+    user_builds = db.count_user_builds(g.user.user_id)
+    return jsonify({
+        "repo_limit": limits.repo_limit, 
+        "build_limit": limits.build_limit, 
+        "repo_count": user_repos, 
+        "build_count": user_builds
+    })
+
+@app.post("/cli/repos/remove/<string:repo_id>")
+@csrf.exempt
+@use_cli_token()
+def cli_repos_remove(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii(): 
+        return jsonify({"error": "Not found"}), 404
+    user_id = db.get_repo_user_id(repo_id)
+    if not user_id or user_id != g.user.user_id: 
+        print(f"user, {user_id=}, {g.user.user_id=}")
+        return jsonify({"error": "Not found"}), 404
+    db.delete_repo(repo_id)
+    path = REPO_PATH / repo_id
+    if path.exists(): 
+        try:
+            with git.RepoLock(path):
+                git.remove_protected_dir(path)
+        except git.RepoLockError:
+            pass # Will be cleaned up by cleanup worker later
+    lg.log(lg.Event.REPO_REMOVED, repo_id=repo_id, user_id=g.user.user_id)
+    return "", 204
+
+@app.post("/cli/repos/build/<string:repo_id>")
+@csrf.exempt
+@use_cli_token()
+def cli_repos_build(repo_id: str):
+    if len(repo_id) != 22 or not repo_id.isascii():
+        return jsonify({"error": "Not found"}), 404
+    repo = db.get_repo_for_clone(repo_id)
+    if not repo: 
+        return jsonify({"error": "Not found"}), 404
+    if int(repo.user_id) != g.user.user_id:
+        print(f"{repo.user_id=}, {g.user.user_id=}")
+        return jsonify({"error": "Not found"}), 404
+    limits = db.get_user_limits(g.user.user_id)
+    if not limits: 
+        return jsonify({"error": "Not found"}), 404
+    user_builds = db.count_user_builds(g.user.user_id)
+    if user_builds >= limits.build_limit:  
+        return jsonify({"error": f"Reached build limit per user ({user_builds}/{limits.build_limit})"}), 420
+    if db.has_repo_active_build(repo_id):  
+        return jsonify({"error": "This repository already has a pending build"}), 425
+    build_id = db.add_build(g.user.user_id, repo_id) # adds pending build for build worker
+    lg.log(lg.Event.BUILD_QUEUED, build_id=build_id, repo_id=repo_id, user_id=g.user.user_id)
+    return "", 202
