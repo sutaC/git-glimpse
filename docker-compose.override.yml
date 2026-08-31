@@ -1,7 +1,22 @@
 services:
     web:
         build: .
-        command: ["flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+        command:
+            [
+                "watchmedo",
+                "auto-restart",
+                "--directory=/app/src",
+                "--pattern=*.py",
+                "--recursive",
+                "--",
+                "python",
+                "-m",
+                "flask",
+                "run",
+                "--host=0.0.0.0",
+                "--port=5000",
+                "--no-reload",
+            ]
         volumes:
             - ./src:/app/src:cached
             - ./data:/app/data
