@@ -46,6 +46,14 @@ class User(NamedTuple):
     inactive: bool
     is_banned: bool
 
+class UserCLI(NamedTuple):
+    id: int
+    login: str 
+    role: str 
+    is_verified: bool
+    inactive: bool
+    is_banned: bool
+
 class UserBan(NamedTuple):
     banned_by: str | None
     banned_at: int
@@ -126,3 +134,10 @@ class Views(NamedTuple):
     location: str | None
     repo: str
     timestamp: int
+
+# --- cli_tokens
+class CliToken(NamedTuple):
+    id: int
+    name: str
+    created_at: int
+    last_used_at: int

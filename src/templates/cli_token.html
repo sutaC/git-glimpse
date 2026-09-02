@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+<!-- prettier-ignore -->
+{% block title %}CLI token | Git Glimpse{% endblock %}
+
+<!-- prettier-ignore -->
+{% block nav %}
+<a href="/dashboard">Dashboard</a>
+<a href="/user">Profile</a>
+{% endblock %}
+
+<!-- prettier-ignore -->
+{% block content %}
+<h1 class="centered">CLI token {{"created" if not err_msg else "error"}}</h1>
+<section>
+    <div class="section_content centered">
+        {% if not err_msg %}
+        <p><strong>Save this token!</strong></p>
+        <p>Here is your new personal access token. You will not be able to see it again.</p>
+        <p>
+            Name:
+            <mark>{{name}}</mark>
+        </p>
+        <div>
+            <label for="token_raw">Token:</label>
+            <input
+                type="text"
+                readonly
+                value="{{ raw_token }}"
+                id="token_raw"
+                style="width: 100%"
+            />
+            <button
+                onclick="navigator.clipboard.writeText(document.getElementById('token_raw').value)"
+                class="primary"
+            >
+                Copy
+            </button>
+        </div>
+        {% else %}
+        <p class="err_msg">{{err_msg}}</p>
+        {% endif %}
+        <a href="/user#hCliTokens" class="buttonlike" style="margin-top: 1rem">Go back</a>
+    </div>
+</section>
+{% endblock %}

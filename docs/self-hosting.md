@@ -41,23 +41,27 @@ Development uses Docker with:
     ```
     pip install -r requirements-docs.txt
     ```
-3. Build image:
+3. Create `data/` directory (_it will hold all server data_)
+    ```
+    mkdir data
+    ```
+4. Build image:
     ```bash
     docker build -t git-glimpse .
     ```
-4. Start the app (dev mode):
+5. Start the app (dev mode):
     ```bash
     docker compose up
     ```
-5. Cleanup worker (manual):
+6. Cleanup worker (manual):
     ```bash
     docker compose --profile manual run --rm cleanup_worker
     ```
-6. Notifications worker (manual):
+7. Notifications worker (manual):
     ```bash
     docker compose --profile manual run --rm notifications_worker
     ```
-7. Reset root password:
+8. Reset root password:
 
     ```bash
     ./scripts/run_root_passwd.sh --password '<password>'

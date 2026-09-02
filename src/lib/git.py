@@ -175,7 +175,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
                     -o IdentitiesOnly=yes \
                     -o UserKnownHostsFile=/home/appuser/.ssh/known_hosts \
             "
-        with tempfile.TemporaryDirectory() as tmpdir_str:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir_str:
             tmpdir = Path(tmpdir_str)
             try:
                 result = subprocess.run([
@@ -225,7 +225,7 @@ def clone_repo(url: str, repo_dir: Path, ssh_key: str | None = None) -> tuple[in
             artifact_path.chmod(0o400)
             # Renders code files
             html_artifact_path = repo_dir / _HTML_ARTIFACT_NAME
-            with tempfile.TemporaryDirectory() as tmpdir_html_str:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir_html_str:
                 tmpdir_html = Path(tmpdir_html_str)
                 try:
                     _render_repo(tmpdir, tmpdir_html)
@@ -304,9 +304,9 @@ def _extract_repo(repo_path: Path) -> None:
         RepoLockError: If repository lock could not be acquired.
     """
     if not repo_path.exists(): return None
-    with RepoLock(repo_path):
-        _extract_repo_artifact(artifact_path=(repo_path / _ARTIFACT_NAME), dest_path=(repo_path / "extracted"))
-        _extract_repo_artifact(artifact_path=(repo_path / _HTML_ARTIFACT_NAME), dest_path=(repo_path / "html"))
+    # with RepoLock(repo_path):
+    _extract_repo_artifact(artifact_path=(repo_path / _ARTIFACT_NAME), dest_path=(repo_path / "extracted"))
+    _extract_repo_artifact(artifact_path=(repo_path / _HTML_ARTIFACT_NAME), dest_path=(repo_path / "html"))
     lg.log(lg.Event.REPO_EXTRACTED, repo_id=repo_path.name)
 
 def _extract_repo_artifact(artifact_path: Path, dest_path: Path) -> None:
@@ -321,7 +321,7 @@ def _extract_repo_artifact(artifact_path: Path, dest_path: Path) -> None:
     if not artifact_path.exists(): raise FileNotFoundError("Artifact doesnt exist")
     if dest_path.exists(): remove_protected_dir(dest_path)
     dest_path.mkdir(parents=True)
-    with tempfile.TemporaryDirectory() as tmpdir_str:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir_str:
         tmpdir = Path(tmpdir_str)
         with open(artifact_path, "rb") as f:
             dctx = zstd.ZstdDecompressor()

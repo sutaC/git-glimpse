@@ -1,5 +1,5 @@
 """Module provides interface for database usage."""
-from src.lib.database_rows import Build, BuildActivity, BuildWork, Limits, Repo, RepoActivity, RepoClone, RepoRow, RepoSelect, RoleType, RowType, Session, Sizes, TokenCreate, User, UserActivity, UserAuth, UserBan, UserNotificationsData, UserRecover, UserTs, Views
+from src.lib.database_rows import *
 from src.lib.utils import is_vaild_status
 from secrets import token_urlsafe
 from typing import Literal
@@ -37,7 +37,7 @@ class Database:
                 `builds_user_limit` INTEGER NOT NULL CHECK (`builds_user_limit` > 0),
                 `repo_limit` INTEGER NOT NULL CHECK (`repo_limit` > 0)
             );
-            INSERT INTO roles (`id`, `name`, `builds_user_limit`, `repo_limit`)
+            INSERT INTO `roles` (`id`, `name`, `builds_user_limit`, `repo_limit`)
             VALUES
                 ('u', 'User', 10, 3),
                 ('a', 'Admin', 100, 10)
@@ -124,6 +124,15 @@ class Database:
                 PRIMARY KEY (`repo_id`, `visitor_hash`, `day`)
             );
             CREATE INDEX IF NOT EXISTS `idx_repo_views_repo_day` ON `repo_views`(`repo_id`, `day`);
+            CREATE TABLE IF NOT EXISTS `cli_tokens` (
+                `id` INTEGER PRIMARY KEY,
+                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `name` TEXT NOT NULL,
+                `token_hash` TEXT NOT NULL,
+                `last_used_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+                `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+                UNIQUE(`user_id`, `name`)
+            );
         ''')
         self._commit()
         cursor.execute("SELECT `id` FROM `users` WHERE `login` = 'root';")
@@ -358,7 +367,8 @@ class Database:
         Returns:
             Repos owner id if found, otherwise None.
         """
-        return self._fetch_value('SELECT `user_id` FROM `repos` WHERE `id` = ?;', (repo_id,))
+        uid =  self._fetch_value('SELECT `user_id` FROM `repos` WHERE `id` = ?;', (repo_id,))
+        return int(uid) if uid else None
 
     def get_repo_for_clone(self, repo_id: str) -> RepoClone | None:
         """Retrieve repo clone data.
@@ -392,17 +402,17 @@ class Database:
         self._cursor().execute('UPDATE `repos` SET `hidden` = ? WHERE `id` = ?;', ((1 if hidden else 0), repo_id))
         self._commit()
 
-    def is_repo_url_for_user(self, url: str, user_id: int) -> bool:
-        """Check if user has repo url.
+    def get_repo_by_url(self, url: str, user_id: int) -> str | None:
+        """Returns users repo id by repo url.
 
         Args:
             url: Repo url to find.
             user_id: User id.
 
         Returns:
-            True if user has repo url.
+            Repo id.
         """
-        return self._fetch_exists('SELECT 1 FROM `repos` WHERE `url` = ? AND `user_id` = ?;', (url, user_id))
+        return self._fetch_value('SELECT `id` FROM `repos` WHERE `user_id` = ? AND `url` = ?;', (user_id, url))
 
     def count_user_repos(self, user_id: int) -> int:
         """Count user repos
@@ -1240,3 +1250,111 @@ class Database:
             JOIN `repo_views` AS `rv` ON `r`.`id` = `rv`.`repo_id`
             WHERE `u`.`id` = ?;
         ''', (user_id,))
+
+    def count_user_cli_tokens(self, user_id: int) -> int:
+        """Count all users cli tokens.
+                
+                Args:
+                    user_id: User id.
+        
+                Retruns:
+                    Count of users cli tokens.
+        """
+        return self._fetch_count('''
+            SELECT COUNT(*)
+            FROM `users` AS `u`
+            JOIN `cli_tokens` AS `t` ON `u`.`id` = `t`.`user_id`
+            WHERE `u`.`id` = ?;
+        ''', (user_id,))
+
+    def add_cli_token(self, user_id: int, name: str, token_hash: str) -> int:
+        """Add  cli token.
+        
+        Args:
+            user_id: User id.
+            name: Name of token.
+            token_hash: Hashed token.
+
+        Retruns:
+            Id of created token.
+        """
+        c = self._cursor()
+        c.execute('''
+            INSERT INTO `cli_tokens` (`user_id`, `name`, `token_hash`) 
+            VALUES (?, ?, ?);
+        ''', (user_id, name, token_hash))
+        self._commit()
+        token_id = c.lastrowid
+        assert isinstance(token_id, int)
+        return token_id
+
+    def has_user_cli_token_name(self, user_id: int, name: str) -> bool:
+        """Check if user has cli token with given name.        
+        Args:
+            user_id: User id.
+            name: Name of token.
+
+        Retruns:
+            True if user has token with given name.
+        """
+        return self._fetch_exists('''
+            SELECT 1 FROM `cli_tokens` AS `t`
+            WHERE `t`.`user_id` = ?
+            AND `t`.`name` = ?;
+        ''', (user_id, name))
+
+    def has_user_cli_token(self, user_id: int, token_id: int) -> bool:
+        """Check if user has cli token with given id.        
+        Args:
+            user_id: User id.
+            token_id: Cli token id.
+
+        Retruns:
+            True if user has token with given id.
+        """
+        return self._fetch_exists('''
+            SELECT 1 FROM `cli_tokens` AS `t`
+            WHERE `t`.`user_id` = ?
+            AND `t`.`id` = ?;
+        ''', (user_id, token_id))
+
+    def list_user_cli_tokens(self, user_id: int) -> list[CliToken]:
+        """Retrieve all users cli tokens.
+        Args:
+            user_id: User id.
+        
+        Returns:
+            List of the cli tokens.
+        """
+        return self._fetch_all('''
+            SELECT `id`, `name`, `created_at`, `last_used_at`
+            FROM `cli_tokens`
+            WHERE `user_id` = ?;
+        ''', (user_id,), row_type=CliToken)
+
+    def delete_cli_token(self, user_id: int, token_id: int) -> None:
+        """Delete cli token
+        
+        Args:
+            user_id: User id.
+            token_id: Cli token id.
+        """
+        self._cursor().execute('DELETE FROM `cli_tokens` AS `t` WHERE `t`.`id` = ? AND `t`.`user_id` = ?;', (token_id, user_id))
+        self._commit()
+
+    def get_user_by_cli_token(self, token_hash: str) -> UserCLI | None:
+        return self._fetch_one(''' 
+        SELECT `u`.`id`, `u`.`login`, `u`.`role`, `u`.`is_verified`, `u`.`inactive`,
+            (SELECT 1 FROM `user_bans` WHERE `user_id` = `u`.`id`) AS `is_banned`
+        FROM cli_tokens AS `t`
+        JOIN `users` AS `u` ON `t`.`user_id` = `u`.`id`
+        WHERE `t`.`token_hash` = ?;
+        ''', (token_hash,), row_type=UserCLI)
+
+    def update_cli_token(self, token_hash: str) -> None:
+        self._cursor().execute('''
+        UPDATE `cli_tokens` 
+        SET `last_used_at` = unixepoch() 
+        WHERE `token_hash` = ?;
+        ''', (token_hash,))
+        self._commit()

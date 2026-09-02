@@ -1,0 +1,35 @@
+<!-- prettier-ignore -->
+{% from "macros/csrf_field.html" import csrf_field %}
+{% macro table_cli_tokens(cli_tokens) %} 
+{% if cli_tokens.__len__() %}
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Created at</th>
+        <th>Last used at</th>
+        <th>Action</th>
+    </tr>
+    {% for id, name, created_at, last_used_at in cli_tokens %}
+    <tr>
+        <td>{{name}}</td>
+        <td>{{created_at}}</td>
+        <td>{{last_used_at}}</td>
+        <td>
+            <form
+                action="/cli/token/revoke"
+                method="post"
+                onclick="
+                    return confirm(
+                        'Are you sure?\nAll devices using this token will stop working immediately.',
+                    );
+                "
+            >
+                {{ csrf_field() }}
+                <input type="hidden" name="token_id" value="{{id}}" />
+                <button type="submit">Revoke</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %} {% endmacro %}

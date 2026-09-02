@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/csrf_field.html" import csrf_field %}
+{% from "macros/table_cli_tokens.html" import table_cli_tokens %}
 <!-- prettier-ignore -->
 {% block title %}Profile | Git Glimpse{% endblock %}
 
@@ -70,6 +71,36 @@
             <span class="tag">Build quota:</span>
             {{build_count}}/{{build_limit}}
         </p>
+    </div>
+</section>
+<section>
+    <div class="section_header">
+        <h2 id="hCliTokens">CLI tokens</h2>
+    </div>
+    <div class="section_content">
+        {{ table_cli_tokens(cli_tokens) }}
+        {% if not cli_tokens_max %}
+        <button 
+            class="primary" 
+            onclick="document.getElementById('dialog_token')?.showModal()" 
+            style="display: block; margin: 1rem auto;"
+        >Add token</button>
+        <dialog id="dialog_token" class="sectionlike" >
+            <h1>Add CLI token</h1>
+            <small>Maximum amount of cli tokens is 5</small>
+            <form action="/cli/token" method="post" style="width: 100%;">
+                {{ csrf_field() }}
+                <div class="field">
+                    <label for="inp_name">Name:</label>
+                    <input type="text" name="name" id="inp_name" placeholder="eg.: Personal Laptop" required minlength="1" maxlength="32">
+                </div>
+                <button type="submit" class="primary">Generate token</button>
+            </form>
+            <button onclick="document.getElementById('dialog_token')?.close()">Cancel</button>
+        </dialog>
+        {% else %}
+        <small style="display: block; margin: 1rem auto; text-align: center;">Reached maximum amount of cli tokens.</small>
+        {% endif %}
     </div>
 </section>
 <section>

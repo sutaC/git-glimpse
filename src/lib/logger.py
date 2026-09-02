@@ -61,6 +61,9 @@ class Event:
     AUTH_PASSWORD_RESET_INVALID = "auth.password.reset.invalid"
     AUTH_PASSWORD_CHANGE_FAILURE = "auth.password.change.failure"
     AUTH_PASSWORD_CHANGE_SUCCESS = "auth.password.change.success"
+    AUTH_CLITOKEN_CREATE = "auth.clitoken.create"
+    AUTH_CLITOKEN_REVOKE = "auth.clitoken.revoke"
+    AUTH_CLITOKEN_REVOKE_INVALID = "auth.clitoken.revoke.invalid"
     # Emails
     EMAIL_SEND = "email.send"
     EMAIL_SEND_FAILED = "email.send.failed"
