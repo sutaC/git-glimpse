@@ -10,6 +10,8 @@ Git Glimpse is a simple self-hosted application for sharing private GitHub repos
 
 **Official website:** [gitglimpse.sutac.pl](https://gitglimpse.sutac.pl/)
 
+**Official CLI tool:** [github.com/sutaC/git-glimpse-cli](https://github.com/sutaC/git-glimpse-cli/)
+
 **Author:** [sutaC](https://github.com/sutaC)
 
 ## Quick Start
