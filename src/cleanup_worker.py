@@ -95,9 +95,20 @@ def _cleanup_repo_views(db: Database) -> int:
 # --- inactive users
 def _flag_inactive_users(db: Database) -> int:
     c = db._cursor()
+    # Not verified
+    c.execute('''
+        UPDATE `users`
+        SET `inactive` = 1
+        WHERE `inactive` = 0
+        AND `is_verified` = 0
+        AND `last_login` < unixepoch() - 604800 -- 7 days
+        AND `login` != 'root'
+    ''')
+    # Verified
     users = c.execute('''
         SELECT `id`, `is_verified`, `email`, `login`, `last_login` FROM `users` 
-        WHERE `inactive` = 0 
+        WHERE `inactive` = 0
+        AND `is_verified` = 1
         AND `last_login` < unixepoch() - 7776000 -- 90 days
         AND `login` != 'root'
     ''').fetchall()
@@ -105,6 +116,7 @@ def _flag_inactive_users(db: Database) -> int:
         UPDATE `users`
         SET `inactive` = 1
         WHERE `inactive` = 0
+        AND `is_verified` = 1
         AND `last_login` < unixepoch() - 7776000 -- 90 days
         AND `login` != 'root'
     ''')
@@ -128,7 +140,8 @@ def _cleanup_inactive_users_repos(db: Database) -> int:
         SELECT `id`, `is_verified`, `email`, `login`
         FROM `users` 
         WHERE `inactive` = 1
-        AND `last_login` < unixepoch() - 8380800 -- 97 days
+        AND ((`is_verified` = 0 AND `last_login` < unixepoch() - 864000) -- 10 days
+            OR (`is_verified` = 1 AND `last_login` < unixepoch() - 8380800)) -- 97 days
         AND `login` != 'root'
     ''').fetchall()
     count = 0
