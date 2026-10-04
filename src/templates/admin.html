@@ -101,6 +101,10 @@
             <span class="tag">Removed inactive users repo artifacts:</span>
             {{cleanup_data.cl_inactive_users_repos}}
         </p>
+        <p>
+            <span class="tag">Removed inactive nonverified user accounts:</span>
+            {{cleanup_data.cl_inactive_nonverified_users}}
+        </p>
         {% else %}
         <small class="empty_msg">No cleanup data was found</small>
         {% endif %}

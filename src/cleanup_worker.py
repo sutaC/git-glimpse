@@ -167,6 +167,18 @@ def _cleanup_inactive_users_repos(db: Database) -> int:
     db._commit()
     return count
 
+def _cleanup_inactive_nonverified_users(db: Database) -> int:
+    c = db._cursor()
+    c.execute('''
+        DELETE FROM `users` 
+        WHERE `inactive` = 1
+        AND `is_verified` = 0 
+        AND `last_login` < unixepoch() - 864000 -- 10 days
+        AND `login` != 'root'
+    ''')
+    db._commit()
+    return c.rowcount
+
 # Save data
 class CleanupData(NamedTuple):
     satarted: str
@@ -179,6 +191,7 @@ class CleanupData(NamedTuple):
     cl_repo_views: int
     cl_flag_inactive_users: int
     cl_inactive_users_repos: int
+    cl_inactive_nonverified_users: int
 
 def get_last_cleanup() -> CleanupData | None:
     """Gives last saved cleanup statistics.
@@ -212,6 +225,7 @@ def run_cleanup() -> None:
         cl_repo_views = _cleanup_repo_views(db)
         cl_inactive_users_repos = _cleanup_inactive_users_repos(db)
         cl_flag_inactive_users = _flag_inactive_users(db)
+        cl_inactive_nonverified_users = _cleanup_inactive_nonverified_users(db)
         db._close()
         ts_end = time()
         duration = int((ts_end-ts_start)*1000)
@@ -228,7 +242,8 @@ def run_cleanup() -> None:
                     "cl_tokens": cl_tokens,
                     "cl_repo_views": cl_repo_views,
                     "cl_flag_inactive_users": cl_flag_inactive_users,
-                    "cl_inactive_users_repos": cl_inactive_users_repos
+                    "cl_inactive_users_repos": cl_inactive_users_repos,
+                    "cl_inactive_nonverified_users": cl_inactive_nonverified_users
                 }, cf)
         except: pass
         lg.log(
@@ -242,7 +257,8 @@ def run_cleanup() -> None:
                 "cl_tokens": cl_tokens,
                 "cl_repo_views": cl_repo_views,
                 "cl_flag_inactive_users": cl_flag_inactive_users,
-                "cl_inactive_users_repos": cl_inactive_users_repos
+                "cl_inactive_users_repos": cl_inactive_users_repos,
+                "cl_inactive_nonverified_users": cl_inactive_nonverified_users
             }
         )
     except Exception:
