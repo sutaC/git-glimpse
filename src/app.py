@@ -1048,7 +1048,14 @@ def cli_repos_status(repo_id: str):
     if not repo or repo.user_id != g.user.user_id:
         return jsonify({"error": "Not found"}), 404
     build = db.get_latest_build(repo_id)
-    return jsonify({"status": utils.code_to_status(build.status) if build else "?"}), 200
+    if not build:         
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "status": utils.code_to_status(build.status), 
+        "timestamp": utils.timestamp_to_str(build.timestamp),
+        "code": lg.USER_MESSAGES.get(build.code, "") if build.code else None,
+        "size": utils.size_to_str(build.size)
+    }), 200
 
 @app.post("/cli/repos/fetch")
 @csrf.exempt
