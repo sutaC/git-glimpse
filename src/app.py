@@ -84,7 +84,7 @@ def load_user():
         db.delete_user_expired_sessions(session.user_id)
         g.clear_session_cookie = True
         return
-    g.user = auth.SessionUser(session_id, session.user_id, *user)
+    g.user = auth.SessionUser(session_id, int(session.user_id), *user)
 
 @app.after_request
 def clear_session_cookie(response: Response):
@@ -1091,7 +1091,6 @@ def cli_repos_remove(repo_id: str):
         return jsonify({"error": "Not found"}), 404
     user_id = db.get_repo_user_id(repo_id)
     if not user_id or user_id != g.user.user_id: 
-        print(f"user, {user_id=}, {g.user.user_id=}")
         return jsonify({"error": "Not found"}), 404
     db.delete_repo(repo_id)
     path = REPO_PATH / repo_id

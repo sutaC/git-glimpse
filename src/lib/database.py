@@ -69,7 +69,7 @@ class Database:
             -- sessions
             CREATE TABLE IF NOT EXISTS `sessions` (
                 `id` TEXT PRIMARY KEY,
-                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `user_id` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `expires` INTEGER NOT NULL,
                 UNIQUE(`user_id`, `id`)
             );
@@ -78,7 +78,7 @@ class Database:
             -- repos
             CREATE TABLE IF NOT EXISTS `repos` (
                 `id` TEXT PRIMARY KEY,
-                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `user_id` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `url` TEXT NOT NULL,
                 `repo_name` TEXT NOT NULL,
                 `ssh_key` TEXT,
@@ -90,7 +90,7 @@ class Database:
             -- builds
             CREATE TABLE IF NOT EXISTS `builds` (
                 `id` INTEGER PRIMARY KEY,
-                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `user_id` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `repo_id` TEXT REFERENCES `repos`(`id`) ON DELETE SET NULL,
                 `status` TEXT NOT NULL DEFAULT 'p' CHECK (`status` IN ('s', 'p', 'f', 'v', 'r')), 
                 `timestamp` INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -103,7 +103,7 @@ class Database:
             -- tokens
             CREATE TABLE IF NOT EXISTS `tokens` (
                 `id` TEXT PRIMARY KEY,
-                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `user_id` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `type` TEXT NOT NULL CHECK (`type` IN ('e_ver', 'p_rec')),
                 `issued` INTEGER NOT NULL DEFAULT (unixepoch()),
                 `expires` INTEGER NOT NULL DEFAULT (unixepoch() + 3600)
@@ -126,7 +126,7 @@ class Database:
             CREATE INDEX IF NOT EXISTS `idx_repo_views_repo_day` ON `repo_views`(`repo_id`, `day`);
             CREATE TABLE IF NOT EXISTS `cli_tokens` (
                 `id` INTEGER PRIMARY KEY,
-                `user_id` TEXT NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
+                `user_id` INTEGER NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
                 `name` TEXT NOT NULL,
                 `token_hash` TEXT NOT NULL,
                 `last_used_at` INTEGER NOT NULL DEFAULT (unixepoch()),
